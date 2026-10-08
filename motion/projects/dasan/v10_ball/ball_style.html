@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../dasan/fonts/black-han-sans/400.css">
+<link rel="stylesheet" href="fonts/jua/400.css">
+<style>
+  @font-face { font-family: P; font-weight: 100; src: url(fonts/Pretendard-Thin.otf); }
+  @font-face { font-family: P; font-weight: 300; src: url(fonts/Pretendard-Light.otf); }
+  @font-face { font-family: P; font-weight: 800; src: url(fonts/Pretendard-ExtraBold.woff2); }
+  * { margin: 0; padding: 0; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: #2340E6; }
+  #pre { position: absolute; left: -9999px; }
+</style>
+</head>
+<body>
+<canvas id="cv" width="1920" height="1080"></canvas>
+<div id="pre"></div>
+<script>
+/* 다산한의원 징글 — lyric-driven type (ref ㉓ "Sunbeam" grammar).
+   One cobalt world with grain; each key word gets a typeface that acts out its meaning.
+   Only type, shapes, straight lines and curves. The four hooks are drawn identically. */
+const W = 1920, H = 1080;
+const BLUE2 = '#1A2FB8', PINK = '#FF7AB6', YEL = '#FFE15A', WH = '#FFFFFF', INK = '#0E0F2E';
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const layer = document.createElement('canvas'); layer.width = W; layer.height = H; const L = layer.getContext('2d');
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, k) => a + (b - a) * k;
+const eOut = x => 1 - Math.pow(1 - x, 3);
+const eIn = x => x * x * x;
+const eInOut = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const spring = p => p <= 0 ? 0 : p >= 1 ? 1 : 1 - Math.exp(-6.5 * p) * Math.cos(8.5 * p);
+function hash(n) { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); }
+
+/* ---------- song clock (jingle_v1_selected, 128 BPM, kick-fitted) ---------- */
+const P = 0.46884, A0 = 0.0629, LEAD = .1;
+const bar = k => A0 + 4 * k * P;
+const beatPh = t => { const n = Math.floor((t - A0) / P); return t - (A0 + n * P); };
+const sbeat = t => { const d = beatPh(t); return d < .05 ? eOut(d / .05) : Math.exp(-(d - .05) * 6); };
+const HOOKS = [bar(0), bar(2), bar(7), bar(12)];
+const hw = h => [h, h + 2.4 * P, h + 4.9 * P].map(x => Math.max(0, x - LEAD));
+const V = { bae: 7.30, jjuk: 7.80, che: 8.05, ssok: 8.95, mom: 9.45, ga: 9.95, ma: 11.10, jeul: 11.60 };
+const B = { ho: 18.60, n33: 19.20, emart: 20.05, geu: 20.75 };
+const FIN = bar(14) - .02;
+const HITS = [];
+HOOKS.forEach(h => HITS.push(...hw(h)));
+HITS.push(V.jjuk, V.ssok, V.ga, V.jeul, B.n33, B.geu, FIN);
+function hitAmt(t) { let a = 0; for (const h of HITS) { const d = t - h; if (d < 0 || d > 1) continue; a = Math.max(a, d < .06 ? eOut(d / .06) : Math.exp(-(d - .06) * 7)); } return a; }
+
+/* ---------- drawing kit (all draw into the current context C) ---------- */
+let C = ctx;
+const grain = document.createElement('canvas'); grain.width = 960; grain.height = 540;
+{ const g = grain.getContext('2d'), im = g.createImageData(960, 540);
+  for (let i = 0; i < 960 * 540; i++) { const v = hash(i * .37) * 255; im.data[i * 4] = im.data[i * 4 + 1] = im.data[i * 4 + 2] = v; im.data[i * 4 + 3] = 34; }
+  g.putImageData(im, 0, 0); }
+function bg() {
+  const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#2B4BF2'); g.addColorStop(.55, '#2340E6'); g.addColorStop(1, BLUE2);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+}
+function grainPass(t) {            // the grain "boils" 12 times a second, like the reference
+  const f = Math.floor(t * 12), ox = Math.floor(hash(f) * 960), oy = Math.floor(hash(f + 7) * 540);
+  ctx.globalCompositeOperation = 'overlay';
+  for (let i = -1; i < 2; i++) for (let j = -1; j < 2; j++) ctx.drawImage(grain, i * 1920 - ox * 2 + 1920, j * 1080 - oy * 2 + 1080, 1920, 1080);
+  ctx.globalCompositeOperation = 'source-over';
+}
+function T(s, x, y, size, o = {}) {
+  C.save(); C.translate(x, y); if (o.rot) C.rotate(o.rot * Math.PI / 180); C.scale(o.sx || 1, o.sy || 1);
+  C.font = `${o.w || ''} ${size}px ${o.f || "'Black Han Sans'"}`; C.textAlign = o.al || 'center'; C.textBaseline = o.bl || 'middle';
+  C.letterSpacing = (o.ls || 0) + 'px';
+  C.globalAlpha = o.a ?? 1; C.fillStyle = o.c || WH; C.fillText(s, 0, 0); C.restore();
+}
+function tw(s, size, f, w = '', ls = 0) { C.save(); C.font = `${w} ${size}px ${f}`; C.letterSpacing = ls + 'px'; const v = C.measureText(s).width; C.restore(); return v; }
+function circ(x, y, r, c, sx = 1, sy = 1) { C.fillStyle = c; C.beginPath(); C.ellipse(x, y, r * sx, r * sy, 0, 0, 7); C.fill(); }
+function ln(pts, w, c, a = 1) { C.save(); C.globalAlpha = a; C.strokeStyle = c; C.lineWidth = w; C.lineCap = 'round'; C.lineJoin = 'round'; C.beginPath(); pts.forEach((p, i) => i ? C.lineTo(...p) : C.moveTo(...p)); C.stroke(); C.restore(); }
+function pill(s, x, y, a = 1) {
+  C.save(); C.globalAlpha = a; C.font = '800 26px P'; const w = C.measureText(s).width + 36;
+  C.strokeStyle = 'rgba(255,255,255,.85)'; C.lineWidth = 2.5; C.beginPath(); C.roundRect(x, y - 21, w, 42, 21); C.stroke();
+  C.fillStyle = WH; C.textAlign = 'left'; C.textBaseline = 'middle'; C.fillText(s, x + 18, y + 1); C.restore(); return w;
+}
+function pills(list, x, y, t0, t) { let cx = x; list.forEach((s, i) => { const a = clamp((t - t0 - i * .06) * 6); cx += pill(s, cx, y + (1 - a) * 14, a) + 12; }); }
+// glossy, puffy syllable (the hero treatment)
+function puffy(ch, x, y, size, sc = 1, sy = 1) {
+  if (sc <= .001) return;
+  C.save(); C.translate(x, y); C.scale(sc, sc * sy);
+  C.font = `${size}px Jua`; C.textAlign = 'center'; C.textBaseline = 'middle'; C.lineJoin = 'round';
+  C.fillStyle = 'rgba(10,20,90,.30)'; C.filter = 'blur(16px)'; C.fillText(ch, 14, 36); C.filter = 'none';
+  const deep = '#C8407E';
+  for (let i = 12; i > 0; i--) { C.lineWidth = size * .07; C.strokeStyle = deep; C.strokeText(ch, i * .6, i * 1.1); C.fillStyle = deep; C.fillText(ch, i * .6, i * 1.1); }
+  const g = C.createLinearGradient(0, -size * .6, 0, size * .6); g.addColorStop(0, '#FFD3E8'); g.addColorStop(.5, PINK); g.addColorStop(1, '#E2508F');
+  C.lineWidth = size * .07; C.strokeStyle = g; C.strokeText(ch, 0, 0); C.fillStyle = g; C.fillText(ch, 0, 0);
+  C.save(); C.beginPath(); C.rect(-size, -size, size * 2, size * .45); C.clip();
+  C.globalAlpha = .35; C.lineWidth = size * .025; C.strokeStyle = WH; C.strokeText(ch, -size * .02, -size * .05); C.restore();
+  C.restore();
+}
+// a word that enters per syllable: soft blur-in + rise
+function sylIn(chars, xs, y, size, f, w, t0, step, t, o = {}) {
+  chars.forEach((ch, i) => {
+    const p = seg(t, t0 + i * step, t0 + i * step + .3); if (p <= 0) return;
+    C.save(); if (p < 1) C.filter = `blur(${(1 - p) * 8}px)`;
+    T(ch, xs[i], y + (1 - spring(p)) * 40, size, { f, w, al: 'left', a: clamp(p * 3), c: o.c });
+    C.restore();
+  });
+}
+const xsOf = (chars, x0, size, f, w, ls = 0) => { const out = []; let x = x0; chars.forEach(ch => { out.push(x); x += tw(ch, size, f, w) + ls; }); return out; };
+
+
+/* ---------- rule: the ball IS the ㅇ ---------- */
+// glyph mask with ring components (ㅇ, the circle of ㅎ) found and optionally erased
+function glyphMask(text, size, font, weight = '', ls = 0) {
+  C = ctx;
+  const w = Math.ceil(tw(text, size, font, weight, ls) + size * .6), h = Math.ceil(size * 1.6);
+  const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');
+  g.font = `${weight} ${size}px ${font}`; g.letterSpacing = ls + 'px'; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.fillText(text, size * .3, h / 2);
+  const im = g.getImageData(0, 0, w, h), A = im.data, N = w * h, lab = new Int32Array(N).fill(-1), comps = [];
+  for (let i = 0; i < N; i++) { if (A[i * 4 + 3] < 110 || lab[i] >= 0) continue;
+    const id = comps.length, st = [i]; lab[i] = id; let x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1, n = 0;
+    while (st.length) { const p = st.pop(), x = p % w, y = (p / w) | 0; n++; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+      for (const q of [p - 1, p + 1, p - w, p + w]) if (q >= 0 && q < N && lab[q] < 0 && A[q * 4 + 3] >= 110 && Math.abs((q % w) - x) <= 1) { lab[q] = id; st.push(q); } }
+    comps.push({ id, x0, y0, x1, y1, n }); }
+  const rings = [];
+  comps.forEach(cp => {
+    const cx = (cp.x0 + cp.x1) >> 1, cy = (cp.y0 + cp.y1) >> 1, bw = cp.x1 - cp.x0, bh = cp.y1 - cp.y0;
+    if (bw < size * .12 || bh < size * .08 || bw / bh > 2.6 || bh / bw > 2.8) return;
+    if (lab[cy * w + cx] === cp.id) return;
+    const hit = (dx, dy) => { for (let k = 1; k < Math.max(bw, bh); k++) { const x = cx + dx * k, y = cy + dy * k; if (x < cp.x0 || x > cp.x1 || y < cp.y0 || y > cp.y1) return false; if (lab[y * w + x] === cp.id) return true; } return false; };
+    if (hit(1, 0) && hit(-1, 0) && hit(0, 1) && hit(0, -1)) rings.push({ id: cp.id, cx: (cp.x0 + cp.x1) / 2, cy: (cp.y0 + cp.y1) / 2, rx: bw / 2, ry: bh / 2 });
+  });
+  rings.sort((a, b) => a.cx - b.cx);
+  return { c, g, im, lab, w, h, rings, size,
+    erase(k) { const id = rings[k].id, d = im.data; for (let i = 0; i < N; i++) if (lab[i] === id) d[i * 4 + 3] = 0; g.putImageData(im, 0, 0); return this; } };
+}
+function tint(m, fill) { const c = document.createElement('canvas'); c.width = m.w; c.height = m.h; const g = c.getContext('2d');
+  g.drawImage(m.c, 0, 0); g.globalCompositeOperation = 'source-in'; g.fillStyle = typeof fill === 'function' ? fill(g, m) : fill; g.fillRect(0, 0, m.w, m.h); return c; }
+// draw a mask centred at (x, y); returns screen position of ring k
+function drawMask(m, x, y, fill, o = {}) {
+  const sx = o.sx || 1, sy = o.sy || 1, t = tint(m, fill);
+  C.save(); C.translate(x, y); C.scale(sx, sy); C.globalAlpha = o.a ?? 1; C.drawImage(t, -m.w / 2, -m.h / 2); C.restore();
+}
+const ringAt = (m, k, x, y, sx = 1, sy = 1) => { const r = m.rings[k]; return [x + (r.cx - m.w / 2) * sx, y + (r.cy - m.h / 2) * sy, r.rx * sx, r.ry * sy]; };
+function puffyMask(m, x, y) {
+  const deep = tint(m, '#5E48D8'), body = tint(m, (g, mm) => { const gr = g.createLinearGradient(0, mm.h * .2, 0, mm.h * .8); gr.addColorStop(0, '#FFFFFF'); gr.addColorStop(.45, '#DCD0FF'); gr.addColorStop(1, '#A08CFF'); return gr; });
+  const X = x - m.w / 2, Y = y - m.h / 2, r = m.size * .03;
+  C.save(); C.filter = 'blur(16px)'; C.globalAlpha = .35; C.drawImage(tint(m, '#0A1460'), X + 14, Y + 34); C.restore();
+  for (let i = 12; i > 0; i--) for (let a = 0; a < 8; a++) C.drawImage(deep, X + i * .6 + Math.cos(a * .785) * r, Y + i * 1.1 + Math.sin(a * .785) * r);
+  for (let a = 0; a < 8; a++) C.drawImage(body, X + Math.cos(a * .785) * r, Y + Math.sin(a * .785) * r);
+  C.drawImage(body, X, Y);
+}
+function ball(x, y, r = 70, sx = 1, sy = 1) {
+  C.save(); C.translate(x, y); C.scale(sx, sy);
+  const g = C.createRadialGradient(-r * .35, -r * .4, r * .1, 0, 0, r); g.addColorStop(0, '#FFB3D6'); g.addColorStop(1, '#FF5FA2');
+  C.fillStyle = g; C.beginPath(); C.arc(0, 0, r, 0, 7); C.fill(); C.restore();
+}
+function dots(pts, a = .8, r = 6) { C.fillStyle = `rgba(255,255,255,${a})`; pts.forEach(([x, y]) => { C.beginPath(); C.arc(x, y, r, 0, 7); C.fill(); }); }
+function hop(x0, y0, x1, y1, h, n = 16, from = 0, to = 1) { const o = []; for (let i = 0; i <= n; i++) { const u = from + (to - from) * i / n; o.push([lerp(x0, x1, u), lerp(y0, y1, u) - 4 * h * u * (1 - u)]); } return o; }
+function emptySlot(x, y, rx, ry) { C.save(); C.setLineDash([10, 12]); C.strokeStyle = 'rgba(255,255,255,.55)'; C.lineWidth = 4; C.beginPath(); C.ellipse(x, y, rx * .8, ry * .8, 0, 0, 7); C.stroke(); C.restore(); }
+const PX3 = ['111', '001', '011', '001', '111'];
+
+const FR = {
+  hopyeong() {        // 호평동: the ball drops into the empty 받침 of 동 and completes the word
+    const m = glyphMask('호평동', 430, 'P', 100, -10), k = m.rings.length - 1; m.erase(k);
+    drawMask(m, 960, 470, WH);
+    const [rx, ry, rr] = ringAt(m, k, 960, 470);
+    dots(hop(1560, -40, rx, ry, 120, 14, 0, .82));
+    ball(rx, ry - 26, rr * .95, .92, 1.1);
+    T('남양주', 960, 860, 60, { f: 'P', w: 300, a: .8 });
+  },
+  diet() {            // 다이어트: two empty ㅇ; each time the ball fills one, the word gets thinner
+    const m = glyphMask('다이어트', 470, 'Jua'); const k1 = 0, k2 = 1; m.erase(k2);
+    const sx = .82;
+    drawMask(m, 960, 560, YEL, { sx });
+    const [ax, ay, ar] = ringAt(m, k1, 960, 560, sx), [bx, by, br, bry] = ringAt(m, k2, 960, 560, sx);
+    // the ball already filled 이 (now a normal ㅇ) and is on its way to the empty ㅇ of 어
+    emptySlot(bx, by, br, bry);
+    dots(hop(ax, ay, bx, by, 260, 16, .08, .6));
+    const [px, py] = hop(ax, ay, bx, by, 260, 1, .64, .64)[0]; ball(px, py, ar * 1.1, .92, 1.08);
+    ln([[200, 250], [200, 870]], 14, WH); ln([[1720, 250], [1720, 870]], 14, WH);
+    T('▶', 120, 560, 70, { f: 'P', w: 800 }); T('◀', 1800, 560, 70, { f: 'P', w: 800 });
+  },
+  dasan() {           // 다산한의원: the ball steps 한 → 의 → 원 and settles as the ㅇ of 원
+    const m = glyphMask('다산한의원', 330, 'Jua', '', 26);
+    const last = m.rings.length - 1; m.erase(last);
+    puffyMask(m, 960, 520);
+    const [ox, oy, orx] = ringAt(m, last, 960, 520);
+    const step = m.rings.map((r, i) => ringAt(m, i, 960, 520));
+    const path = [[step[0][0] - 380, step[0][1] - 60]].concat(step.slice(0, last).map(s => [s[0], s[1] - 150]));
+    for (let i = 0; i < path.length - 1; i++) dots(hop(...path[i], ...path[i + 1], 90, 10), .6, 5);
+    dots(hop(...path[path.length - 1], ox, oy, 140, 12, 0, .8), .8, 6);
+    ball(ox, oy + 6, orx * 1.15, 1.18, .84);
+    pills(['남양주', '호평동', '다이어트'], 960 - 230, 960, -1, 10);
+  },
+  jjuk() {            // 뱃살은 쭉: the ball is the belly and stretches 쭉
+    T('뱃살은', 180, 230, 150, { f: 'P', w: 300, al: 'left' });
+    for (let k = 5; k >= 1; k--) { C.save(); C.globalAlpha = .1 + (5 - k) * .1; ball(1050 - k * 120, 640, 150, 1.2 + k * .05, .8); C.restore(); }
+    ball(1050, 640, 150, 2.2, .62);
+    T('쭉!', 1560, 330, 300, { c: WH });
+    ln([[180, 860], [1760, 860]], 5, WH);
+  },
+  ssok() {            // 체질 맞춰 쏙: a slot cut exactly to the ball's size; it drops in
+    T('체질 맞춰', 180, 300, 150, { f: 'P', w: 300, al: 'left' });
+    const sx = 1180, r = 110;
+    ln([[160, 760], [sx - r - 6, 760]], 6, WH); ln([[sx + r + 6, 760], [1760, 760]], 6, WH);
+    ln([[sx - r - 6, 760], [sx - r - 6, 990]], 6, WH); ln([[sx + r + 6, 760], [sx + r + 6, 990]], 6, WH);
+    C.save(); C.beginPath(); C.rect(0, 0, W, 760); C.rect(sx - r, 760, 2 * r, 240); C.clip(); ball(sx, 790, r, 1, 1.05); C.restore();
+    for (let i = 0; i < 3; i++) ln([[sx - 70 + i * 70, 560 - i * 10], [sx - 70 + i * 70, 620 - i * 10]], 5, WH, .6);
+    T('쏙!', 1560, 380, 300, { c: YEL });
+  },
+  light() {           // 몸은 가볍게: the ball sprouts a string and floats
+    T('몸은', 260, 300, 150, { f: 'P', w: 300 });
+    ln([[1180, 520], [1150, 700], [1200, 860], [1170, 1000]], 5, WH);
+    ball(1180, 390, 140, .92, 1.04);
+    C.save(); C.translate(1180, 524); C.fillStyle = '#FF5FA2'; C.beginPath(); C.moveTo(-16, 10); C.lineTo(16, 10); C.lineTo(0, -8); C.fill(); C.restore();
+    [['가', 520, 600, -6], ['볍', 720, 540, 4], ['게', 920, 590, -3]].forEach(([ch, x, y, r]) => T(ch, x, y, 200, { f: 'Jua', c: YEL, rot: r }));
+  },
+  jeul() {            // 마음은 즐겁게: the ball surfs the wavy line
+    const wave = x => 760 + Math.sin((x - 300) / 180) * 50;
+    const pts = []; for (let x = 120; x <= 1800; x += 10) pts.push([x, wave(x) + 70]); ln(pts, 8, YEL);
+    T('마음은', 380, wave(380) - 40, 120, { f: 'P', w: 300 });
+    [['즐', 860], ['겁', 1110], ['게', 1360]].forEach(([ch, x]) => T(ch, x, wave(x) - 60, 210, { c: WH, rot: Math.atan(Math.cos((x - 300) / 180) * 50 / 180) * 57.3 }));
+    dots(hop(1360, wave(1360) - 220, 1620, wave(1620) + 10, 120, 10, 0, .9), .6, 5);
+    ball(1620, wave(1620) + 2, 60, 1.15, .86);
+  },
+  road() {            // 호평로 33: the ball rolls down the straight road and stops at 33
+    T('호평로', 160, 240, 170, { f: 'P', w: 100, al: 'left' });
+    ln([[120, 820], [1800, 820]], 10, WH);
+    for (let i = 0; i < 4; i++) ln([[300 + i * 120, 760 - i * 6], [400 + i * 120, 760 - i * 6]], 5, WH, .25 + i * .15);
+    ball(1080, 760, 60);
+    let idx = 0; [0, 1].forEach(d => PX3.forEach((r, j) => r.split('').forEach((b, i) => { if (b === '1') { C.fillStyle = YEL; C.fillRect(1260 + d * 230 + i * 52, 480 + j * 52, 46, 46); } })));
+  },
+  emart() {           // 이마트 그 건물: the ball leaves 이's ㅇ and lands on the roof like a map pin
+    const m = glyphMask('이마트', 120, 'P', 800); m.erase(0);
+    drawMask(m, 960, 120, WH);
+    const [ix, iy, irx, iry] = ringAt(m, 0, 960, 120); emptySlot(ix, iy, irx, iry);
+    ln([[700, 200], [1220, 200]], 12, WH);
+    [['그', 340], ['건', 590], ['물', 840]].forEach(([ch, y]) => T(ch, 960, y, 250, { sx: 1.9 }));
+    ln([[640, 990], [1280, 990]], 12, WH);
+    dots(hop(ix, iy, 1150, 150, 160, 14, .1, .9), .7, 5);
+    // pin = ball + a small point underneath, sitting on the roof
+    C.fillStyle = '#FF5FA2'; C.beginPath(); C.moveTo(1130, 168); C.lineTo(1170, 168); C.lineTo(1150, 198); C.fill(); ball(1150, 130, 44);
+    C.fillStyle = WH; C.beginPath(); C.arc(1150, 130, 14, 0, 7); C.fill();
+    T('그 건물!', 180, 560, 150, { c: PINK, al: 'left' });
+  },
+  finale() {          // the ball comes home to 동; everything locks up with the info pill
+    const m = glyphMask('호평동', 200, 'P', 100, -6), k = m.rings.length - 1; m.erase(k);
+    drawMask(m, 520, 220, WH); const [hx, hy, hr] = ringAt(m, k, 520, 220); ball(hx, hy, hr * 1.05);
+    T('다이어트', 1400, 220, 200, { c: YEL, sx: .62 });
+    const d = glyphMask('다산한의원', 280, 'Jua', '', 24); puffyMask(d, 960, 560);
+    C.font = '800 40px P'; const s = '남양주 호평동 · 호평로 33 · 031-559-8101', w2 = C.measureText(s).width + 80;
+    C.fillStyle = WH; C.beginPath(); C.roundRect(960 - w2 / 2, 900, w2, 74, 37); C.fill();
+    C.fillStyle = '#2340E6'; C.textAlign = 'center'; C.textBaseline = 'middle'; C.fillText(s, 960, 938);
+  },
+};
+const ORDER = ['hopyeong', 'diet', 'dasan', 'jjuk', 'ssok', 'light', 'jeul', 'road', 'emart', 'finale'];
+window.render = function (t) { ctx.setTransform(1, 0, 0, 1, 0, 0); bg(); C = ctx; FR[ORDER[Math.round(t)]](); C = ctx; grainPass(3.3); };
+window.debugRings = () => ['다이어트|470|P|900|0', '다이어트|470|Jua||0', '호평동|430|P|100|-10', "다이어트|470|'Black Han Sans'||0", '다산한의원|330|Jua||26', '이마트|120|P|800|0'].map(s => { const [t, z, f, w, l] = s.split('|'); const m = glyphMask(t, +z, f, w, +l); return t + ':' + m.rings.map(r => Math.round(r.cx) + ',' + Math.round(r.cy) + ' ' + Math.round(r.rx) + 'x' + Math.round(r.ry)).join(' | '); }).join('\n');
+window.fitAll = async () => {
+  const s = '호평동다이어트다산한의원뱃살은쭉체질맞춰쏙몸은가볍게마음은즐겁게호평로이마트그건물남양주시·031-559-8101!®◀▶33';
+  document.getElementById('pre').innerHTML = `<span style="font-family:'Black Han Sans'">${s}</span><span style="font-family:Jua">${s}</span><span style="font-family:P;font-weight:100">${s}</span><span style="font-family:P;font-weight:300">${s}</span><span style="font-family:P;font-weight:800">${s}</span>`;
+  await Promise.all(["100px 'Black Han Sans'", '100px Jua', '100 100px P', '300 100px P', '800 100px P'].map(f => document.fonts.load(f, s)));
+  await document.fonts.ready; await new Promise(r => setTimeout(r, 300));
+  window.render(0);
+};
+</script>
+</body>
+</html>
