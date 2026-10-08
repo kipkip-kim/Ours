@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="fonts/black-han-sans/400.css">
+<style>
+  @font-face { font-family: P; font-weight: 700; src: url(fonts/Pretendard-Bold.woff2); }
+  @font-face { font-family: P; font-weight: 800; src: url(fonts/Pretendard-ExtraBold.woff2); }
+  @font-face { font-family: P; font-weight: 900; src: url(fonts/Pretendard-Black.woff2); }
+  /* ONE THEME — "틀이 못 버텨": a paper frame stuffed with 호평동·다이어트·다산한의원 bulges like a belly, then snaps slim.
+     tape-yellow wall / ink / cream paper + coral accent. Camera moves only at section changes (ref ㉒ grammar). */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: #FFD23F; font-family: P, sans-serif; }
+  #bg { position: absolute; inset: 0; }
+  #stage { position: absolute; inset: 0; perspective: 1400px; perspective-origin: 960px 540px; overflow: hidden; }
+  #world { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; transform-style: preserve-3d; }
+  .abs { position: absolute; }
+  .card { position: absolute; width: 1920px; height: 1080px; }
+  .paper { position: absolute; inset: 0; background-color: #F5F0E6;
+    background-image: linear-gradient(rgba(20,19,17,.07) 2px, transparent 2px), linear-gradient(90deg, rgba(20,19,17,.07) 2px, transparent 2px);
+    background-size: 60px 60px; }
+  .shadow { box-shadow: 0 40px 90px rgba(80,50,0,.28), 0 8px 18px rgba(80,50,0,.18); }
+  .bhs { font-family: 'Black Han Sans', sans-serif; line-height: 1; white-space: nowrap; letter-spacing: -2px; }
+  .lab { position: absolute; font-weight: 800; font-size: 30px; letter-spacing: 3px; color: rgba(20,19,17,.72); white-space: nowrap; }
+  .grp { position: absolute; left: 960px; top: 540px; white-space: nowrap; }
+  .stand { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-style: preserve-3d; }
+  .tape { position: absolute; background: #FFD23F; border: 6px solid #141311; border-radius: 8px;
+    background-image: repeating-linear-gradient(90deg, #141311 0 4px, transparent 4px 24px); background-size: auto 22px; background-repeat: repeat-x; }
+  .frm { position: absolute; left: 0; top: 0; overflow: visible; }
+  #pre { position: absolute; left: -9999px; }
+</style>
+</head>
+<body>
+<canvas id="bg" width="1920" height="1080"></canvas>
+<svg width="0" height="0" style="position:absolute"><defs>
+  <symbol id="pinS" viewBox="0 0 100 140"><path d="M50 136 C50 136 8 82 8 50 A42 42 0 0 1 92 50 C92 82 50 136 50 136 Z" fill="#FF5A36" stroke="#141311" stroke-width="7"/><circle cx="50" cy="50" r="16" fill="#F5F0E6" stroke="#141311" stroke-width="6"/></symbol>
+</defs></svg>
+<div id="stage"><div id="world"></div></div>
+<div id="pre"></div>
+<script>
+const $ = id => document.getElementById(id);
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, k) => a + (b - a) * k;
+const eOut = x => 1 - Math.pow(1 - x, 3);
+const eIn = x => x * x * x;
+const eInOut = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const spring = p => p <= 0 ? 0 : p >= 1 ? 1 : 1 - Math.exp(-6.5 * p) * Math.cos(8.5 * p);
+const Y = '#FFD23F', INK = '#141311', CR = '#F5F0E6', CO = '#FF5A36';
+const W = 1920, H = 1080, PERS = 1400;
+
+/* ---------- beat clock (128 BPM, from kick analysis of jingle_v1_selected) ---------- */
+const P = 0.46884, A0 = 0.0629;
+const bar = k => A0 + 4 * k * P;
+function beatPh(t) { const n = Math.floor((t - A0) / P); return t - (A0 + n * P); }
+function sbeat(t) { const d = beatPh(t); return d < .05 ? eOut(d / .05) : Math.exp(-(d - .05) * 6); }
+
+/* ---------- song map ---------- */
+const LEAD = .08;
+const HOOKS = [bar(0), bar(2), bar(7), bar(12)];
+const hw = h => [h, h + 2.4 * P, h + 4.9 * P].map(x => Math.max(0, x - LEAD));   // 호평동 / 다이어트 / 다산한의원
+const V = { bae: 7.30, jjuk: 7.80, che: 8.05, ssok: 8.95, mom: 9.45, ga: 9.95, ma: 11.10, jeul: 11.60 };
+const BLD = 9500;
+const M = { tilt: 16.40, road: 18.55, n33: 19.20, emart: 20.00, geu: 20.75, fly: 21.95, cut: 22.50 };
+const FIN = bar(14) - .02;          // final hit ≈ 26.30
+const SW = k => k === 0 ? -1e9 : HOOKS[k] - .09;    // when hook k takes over the card
+const HITS = [];
+HOOKS.forEach(h => HITS.push(...hw(h)));
+HITS.push(V.jjuk, V.ssok, V.jeul, M.n33, M.geu, FIN);
+function hitAmt(t) { let a = 0; for (const h of HITS) { const d = t - h; if (d < 0 || d > 1) continue; a = Math.max(a, d < .06 ? eOut(d / .06) : Math.exp(-(d - .06) * 7)); } return a; }
+const wob = (d, A) => d <= 0 || d > 2 ? 0 : A * Math.exp(-4.2 * d) * Math.sin(2 * Math.PI * 2.4 * d);
+const fl = (t, s, a = 1) => `translate(${Math.cos(t * 1.2 + s) * 3 * a}px, ${Math.sin(t * 1.7 + s) * 4 * a}px)`;
+
+/* ---------- rubber frame ---------- */
+const FR = { x0: 110, y0: 95, x1: 1810, y1: 985 };
+function framePath(F, b, o = {}) {
+  const cs = o.cs || 0, lift = o.lift || 0, bw = o.belly || 0, k = 4 / 3;
+  const A = [F.x0 - cs, F.y0 - cs], B = [F.x1 + cs, F.y0 - cs], C = [F.x1 + cs, F.y1 + cs - lift], D = [F.x0 - cs, F.y1 + cs - lift];
+  const r1 = 1 - bw * .7, r2 = 1 + bw * .7;
+  let p = `M${A[0]},${A[1]} C${lerp(A[0], B[0], 1 / 3)},${A[1] - k * b.t} ${lerp(A[0], B[0], 2 / 3)},${B[1] - k * b.t} ${B[0]},${B[1]}`;
+  p += ` C${B[0] + k * b.r * r1},${lerp(B[1], C[1], 1 / 3)} ${C[0] + k * b.r * r2},${lerp(B[1], C[1], 2 / 3)} ${C[0]},${C[1]}`;
+  p += ` C${lerp(C[0], D[0], 1 / 3)},${C[1] + k * b.b} ${lerp(C[0], D[0], 2 / 3)},${D[1] + k * b.b} ${D[0]},${D[1]}`;
+  p += ` C${D[0] - k * b.l * r2},${lerp(D[1], A[1], 1 / 3)} ${A[0] - k * b.l * r1},${lerp(D[1], A[1], 2 / 3)} ${A[0]},${A[1]} Z`;
+  return p;
+}
+const FRAME_SVG = id => `<svg class="frm" width="1920" height="1080" viewBox="0 0 1920 1080"><path id="${id}" fill="none" stroke="${INK}" stroke-width="7" stroke-linejoin="round" d="${framePath(FR, { l: 0, r: 0, t: 0, b: 0 })}"/></svg>`;
+const LABELS = (tl, tr, bl, br, idp = '') => `
+  <div class="lab" style="left:112px; top:34px">${tl}</div><div class="lab" id="${idp}tr" style="right:112px; top:34px">${tr}</div>
+  <div class="lab" style="left:112px; bottom:30px">${bl}</div><div class="lab" style="right:112px; bottom:30px">${br}</div>`;
+const DOT = (id, x = 960, y = 540, r = 58) => `<div id="${id}" class="abs" style="left:${x - r}px; top:${y - r}px; width:${2 * r}px; height:${2 * r}px; border-radius:50%; background:${CO}; border:7px solid ${INK}"></div>`;
+
+/* ---------- build the world ---------- */
+const HOOK_LAB = ['남양주 호평동', '01 / 04', '호평로 33', '다산한의원 다이어트'];
+$('world').innerHTML = `
+<div id="wall" class="abs" style="left:0; top:0; width:0; height:0">
+  <div class="card shadow" style="left:-980px; top:-260px; width:820px; height:1100px; background:${INK}; border-radius:6px; transform:rotate(-3deg)">
+    <div class="abs" style="left:190px; top:300px; width:440px; height:440px; border-radius:50%; background:${CO}"></div>
+    <div class="lab" style="left:60px; top:50px; color:${CR}">02 · 다이어트</div><div class="lab" style="left:60px; bottom:50px; color:${Y}">다산한의원</div></div>
+  <div class="card shadow" style="left:240px; top:1290px; width:640px; height:640px; background:${CO}; border-radius:6px; transform:rotate(2deg)">
+    <div class="abs" style="left:120px; top:120px; width:400px; height:400px; border-radius:50%; border:44px solid ${CR}"></div></div>
+  <div class="card shadow" style="left:1230px; top:1330px; width:1100px; height:580px; background:${CR}; border-radius:6px; transform:rotate(-1.5deg)">
+    <div class="tape" style="left:-20px; right:-20px; top:330px; height:90px"></div>
+    <div class="bhs abs" style="left:90px; top:110px; font-size:150px; color:${INK}">체질 맞춤</div></div>
+  <div class="card shadow" style="left:4330px; top:-360px; width:720px; height:960px; background:${INK}; border-radius:6px; transform:rotate(3deg)">
+    <svg class="abs" style="left:270px; top:200px" width="180" height="252"><use href="#pinS" width="180" height="252"/></svg>
+    <div class="bhs abs" style="left:0; right:0; top:560px; text-align:center; font-size:150px; color:${CR}">호평동</div></div>
+  <div class="card shadow" style="left:1960px; top:-470px; width:380px; height:380px; background:${CO}; border-radius:50%">
+    <div class="bhs abs" style="left:0; right:0; top:110px; text-align:center; font-size:170px; color:${CR}">33</div></div>
+  <div id="vcard" class="card shadow" style="left:2200px; top:150px">
+    <div class="paper"></div>${FRAME_SVG('vfp')}
+    ${LABELS('02 / 다이어트', '체질 맞춤', '뱃살은 쭉', '몸도 마음도')}
+    <div class="tape" id="vtape" style="left:0; top:470px; width:1920px; height:80px"></div>
+    <div class="grp bhs" id="l1" style="font-size:170px; color:${INK}">뱃살은 <span id="jj" style="display:inline-block; color:${CO}">쭉!</span></div>
+    <div class="grp bhs" id="l2" style="font-size:170px; color:${INK}">체질 맞춰 <span id="ss" style="display:inline-block; color:${CO}">쏙!</span></div>
+    <div class="grp bhs" id="l3" style="font-size:170px; color:${INK}">몸은 <span id="gb" style="display:inline-block">가볍게</span></div>
+    <div class="grp bhs" id="l4" style="font-size:170px; color:${INK}">마음은 <span style="color:${CO}">즐겁게</span></div>
+    ${DOT('ey1', 300, 330, 46)}${DOT('ey2', 1620, 330, 46)}
+  </div>
+  <div id="hshadow" class="card shadow" style="left:0; top:0; background:${CR}"></div>
+</div>
+<div id="hcard" class="card" style="left:0; top:0; transform-origin:960px 1080px">
+  <div id="hpaper" class="paper"></div>
+  <div id="hflat" class="abs" style="left:0; top:0; width:1920px; height:1080px">${FRAME_SVG('hfp')}${LABELS(...HOOK_LAB, 'h')}</div>
+  <div id="road" class="abs" style="left:850px; top:${1080 - BLD}px; width:220px; height:${BLD - 1500}px; transform-origin:50% 100%;
+    background:${Y}; border-left:10px solid ${INK}; border-right:10px solid ${INK};
+    background-image:repeating-linear-gradient(0deg, ${INK} 0 8px, transparent 8px 60px), linear-gradient(90deg, transparent 0 40%, ${CO} 40% 60%, transparent 60%);
+    background-size:70px 100%, 100% 100%; background-repeat:repeat-y, no-repeat"></div>
+  <div class="stand" id="s1"><div class="grp" id="g1"><div style="position:relative">
+    <svg id="hpin" width="120" height="168" style="position:absolute; left:50%; top:-165px; margin-left:-60px"><use href="#pinS" width="120" height="168"/></svg>
+    <span class="bhs" style="font-size:300px; color:${INK}">호평동</span></div></div></div>
+  <div class="stand" id="s2"><div class="grp" id="g2"><div style="position:relative">
+    <div class="tape" id="tp" style="left:-50px; right:-50px; top:292px; height:58px; background-color:${CO}"></div>
+    <span id="dt" class="bhs" style="display:inline-block; position:relative; font-size:300px; color:${INK}">다이어트</span></div></div></div>
+  <div class="stand" id="s3"><div class="grp" id="g3"><span class="bhs" style="display:inline-block; font-size:230px; color:${Y}; background:${INK}; padding:28px 70px 44px; border-radius:40px; box-shadow:0 18px 0 rgba(20,19,17,.25)">다산한의원</span></div></div>
+  ${DOT('hdot')}
+  <div class="grp" id="pill"><span style="display:inline-block; background:${INK}; color:${CR}; border-radius:999px; padding:14px 46px; font-weight:800; font-size:44px; letter-spacing:1px">남양주 호평동 · 호평로 33 · 031-559-8101</span></div>
+  <div class="stand" id="s33"><div class="grp bhs" id="t33" style="font-size:210px; color:${INK}">호평로 <span id="n33" style="display:inline-block; color:${CO}">33</span></div></div>
+  <div class="stand" id="sgeu"><div class="grp bhs" id="tgeu" style="font-size:240px; color:${CO}; -webkit-text-stroke:8px ${INK}; paint-order:stroke fill">그 건물!</div></div>
+  <div class="stand" id="sbld"><div id="bld" class="abs" style="left:-440px; top:-720px; width:2800px; height:1800px; transform-origin:50% 100%">
+    <div class="abs" style="inset:0; background:${CR}; border:22px solid ${INK}; border-radius:24px;
+      background-image:repeating-linear-gradient(90deg, transparent 0 150px, rgba(20,19,17,.16) 150px 170px), repeating-linear-gradient(0deg, transparent 0 130px, rgba(20,19,17,.16) 130px 150px)"></div>
+    <div class="abs" style="left:0; right:0; top:-10px; height:300px; background:${INK}; border-radius:24px 24px 0 0"></div>
+    <div class="bhs abs" style="left:0; right:0; top:20px; text-align:center; font-size:250px; color:${Y}">이마트</div>
+    <div id="sign" class="abs" style="left:950px; top:447px; width:1920px; height:1080px; transform:scale(.46875); transform-origin:0 0; box-shadow:0 0 0 30px ${INK}">
+      <div class="paper"></div>${FRAME_SVG('sfp')}${LABELS(HOOK_LAB[0], '04 / 04', HOOK_LAB[2], HOOK_LAB[3])}${DOT('sdot')}</div>
+    <svg id="bpin" class="abs" style="left:1310px; top:-420px" width="180" height="252"><use href="#pinS" width="180" height="252"/></svg>
+  </div></div>
+</div>`;
+const E = { world: $('world') }; document.querySelectorAll('#world [id]').forEach(e => E[e.id] = e);
+const S = (id, o) => { const e = E[id]; for (const k in o) e.style[k] = o[k]; };
+// group bases (card y of each word's foot) for standing up on the floor
+const BASE = { s1: 354, s2: 620, s3: 941, s33: 1080 - 5000, sgeu: 1080 - 5200, sbld: 1080 - BLD };
+for (const k in BASE) E[k].style.transformOrigin = `960px ${BASE[k]}px`;
+E.sbld.firstElementChild.style.top = (BASE.sbld - 1800) + 'px';
+E.t33.style.top = (BASE.s33 - 105) + 'px'; E.t33.style.left = '420px';
+E.tgeu.style.top = (BASE.sgeu - 120) + 'px'; E.tgeu.style.left = '1560px';
+
+/* ---------- camera ---------- */
+const K0 = [960, 540, 1, 0], KW = [2120, 600, .42, -2], KV = [3160, 690, .82, 0], KE = [1500, 640, .5, -1.5];
+function camMix(a, b, e, dip = 0) {
+  const s = Math.exp(lerp(Math.log(a[2]), Math.log(b[2]), e)) * (1 - dip * Math.sin(Math.PI * e));
+  return [lerp(a[0], b[0], e), lerp(a[1], b[1], e), s, lerp(a[3], b[3], e)];
+}
+function cam2D(t) {
+  if (t < 6.45) return K0;
+  if (t < 7.30) return camMix(K0, KW, eInOut(seg(t, 6.45, 6.98)));
+  if (t < 12.45) return camMix(KW, KV, eInOut(seg(t, 7.30, 7.80)));
+  if (t < 27.0) return camMix(KV, K0, eInOut(seg(t, 12.45, 13.12)), .38);
+  return camMix(K0, KE, eInOut(seg(t, 27.0, 28.4)));
+}
+const in3D = t => t >= M.tilt - .05 && t < M.cut;
+const theta = t => in3D(t) ? 90 * eInOut(seg(t, M.tilt, M.tilt + .55)) : 0;
+const zBase = t => 3600 * eInOut(seg(t, 16.7, 18.9)) + 120 * Math.max(0, t - 16.7);
+function cam3D(t) {      // returns [Zc, dy]
+  if (!in3D(t)) return [0, 0];
+  if (t < M.fly) return [zBase(t), 0];
+  const q = eInOut(seg(t, M.fly, M.cut)), d0 = PERS + BLD - zBase(M.fly), d1 = PERS * 900 / 1920;
+  return [PERS + BLD - Math.exp(lerp(Math.log(d0), Math.log(d1), q)), 560 * q];
+}
+
+/* ---------- canvas: wall (2D) or floor (3D) ---------- */
+const cv = $('bg'), ctx = cv.getContext('2d');
+function drawWall(c, bx, by, S2) {
+  ctx.fillStyle = Y; ctx.fillRect(0, 0, W, H);
+  const r = c[3] * Math.PI / 180, co = Math.cos(r), si = Math.sin(r), s = c[2] * S2;
+  const inv = (X, Yy) => { const x = (X - W / 2 - bx) / s, y = (Yy - H / 2 - by) / s; return [co * x + si * y + c[0], -si * x + co * y + c[1]]; };
+  const pts = [inv(0, 0), inv(W, 0), inv(0, H), inv(W, H)];
+  const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]), G = 70;
+  ctx.fillStyle = 'rgba(20,19,17,.13)';
+  for (let x = Math.floor(Math.min(...xs) / G) * G; x <= Math.max(...xs); x += G)
+    for (let y = Math.floor(Math.min(...ys) / G) * G; y <= Math.max(...ys); y += G) {
+      const X = W / 2 + bx + (co * (x - c[0]) - si * (y - c[1])) * s, Yy = H / 2 + by + (si * (x - c[0]) + co * (y - c[1])) * s;
+      ctx.beginPath(); ctx.arc(X, Yy, 3.5 * s, 0, 7); ctx.fill();
+    }
+}
+function drawFloor(th, Zc, dy, bx, by) {
+  ctx.fillStyle = Y; ctx.fillRect(0, 0, W, H);
+  const st = Math.sin(th * Math.PI / 180), ct = Math.cos(th * Math.PI / 180);
+  const P3 = (x, rel) => [x + bx, 1080 - rel * ct + dy + by, -rel * st + Zc];
+  const proj = p => { const f = PERS / (PERS - p[2]); return [960 + (p[0] - 960) * f, 540 + (p[1] - 540) * f]; };
+  const NEAR = PERS - 40, FAR = 12000, X0 = -9000, X1 = 10920;
+  const relMin = st > 1e-4 ? Math.max(0, (Zc - NEAR) / st) : 0;
+  // paper
+  const q = [proj(P3(X0, relMin)), proj(P3(X1, relMin)), proj(P3(X1, FAR)), proj(P3(X0, FAR))];
+  ctx.fillStyle = CR; ctx.beginPath(); q.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); ctx.fill();
+  // grid (fades with distance so the far field never shimmers)
+  ctx.lineWidth = 2;
+  const fade = rel => clamp(1 - (rel - 2500) / 5500);
+  for (let x = Math.ceil(X0 / 60) * 60; x <= X1; x += 60) {
+    for (let b = 0; b < 6; b++) {
+      const ra = Math.max(relMin, b * 1500), rb = Math.max(relMin, (b + 1) * 1500); if (rb <= ra) continue;
+      const a = proj(P3(x + 1, ra)), c = proj(P3(x + 1, rb));
+      if (Math.max(a[0], c[0]) < -5 || Math.min(a[0], c[0]) > W + 5) continue;
+      ctx.strokeStyle = `rgba(20,19,17,${.07 * fade((ra + rb) / 2)})`;
+      ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(c[0], c[1]); ctx.stroke();
+    }
+  }
+  let lastY = 1e9;
+  for (let rel = Math.ceil(relMin / 60) * 60; rel <= 9000; rel += 60) {
+    const a = proj(P3(X0, rel - 1)), c = proj(P3(X1, rel - 1));
+    if (Math.abs(lastY - a[1]) < 5) continue; lastY = a[1];
+    ctx.strokeStyle = `rgba(20,19,17,${.07 * fade(rel)})`;
+    ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(c[0], c[1]); ctx.stroke();
+  }
+  // haze into the yellow wall at the horizon
+  const yf = proj(P3(0, FAR))[1], yh = proj(P3(0, 6000))[1];
+  if (yh > yf + 1) { const g = ctx.createLinearGradient(0, yf, 0, yh); g.addColorStop(0, Y); g.addColorStop(1, 'rgba(255,210,63,0)'); ctx.fillStyle = g; ctx.fillRect(0, yf - 2, W, yh - yf + 2); }
+  if (th > 60) { ctx.fillStyle = `rgba(20,19,17,${.35 * seg(th, 60, 90)})`; ctx.fillRect(0, yf - 2, W, 4); }
+}
+
+/* ---------- HOOK CARD: identical choreography every time; only the pressure level grows ---------- */
+const LOCK = { g1: [285, .46], g2: [500, .6], g3: [790, 1] };
+function hookState(t) {     // active hook index + suck progress toward the next one
+  let k = 0; for (let i = 1; i < 4; i++) if (t >= SW(i)) k = i;
+  let s = 0;
+  if (k < 3) s = seg(t, HOOKS[k + 1] - .36, SW(k + 1));
+  else s = seg(t, FIN - .26, FIN);
+  return [k, s];
+}
+function setG(id, x, y, sc, rot, op, inner = '') {
+  S(id, { opacity: op, transform: `translate(-50%,-50%) translate(${x - 960}px, ${y - 540}px) scale(${sc}) rotate(${rot}deg) ${inner}` });
+}
+function HOOK(t) {
+  const fin = t >= FIN;
+  const [k, s] = hookState(t), lev = k;
+  const [t1, t2, t3] = hw(HOOKS[k]);
+  const sk = eIn(s), sop = 1 - seg(s, .65, 1);
+  const toDot = (x, y) => [lerp(x, 960, sk), lerp(y, 540, sk)];
+  const u2 = spring(seg(t, t2 - .04, t2 + .4)), u3 = spring(seg(t, t3 - .04, t3 + .4)), v = spring(seg(t, t3, t3 + .5));
+  let g = {};
+  // 1) 호평동 + pin
+  {
+    const p1 = seg(t, t1, t1 + .45);
+    let y = 540 + (330 - 540) * u2 + (LOCK.g1[0] - 330) * u3, x = 960, sc = lerp(1.55, 1, spring(p1)) * lerp(1, .55, u2) * lerp(1, LOCK.g1[1] / .55, u3), rot = 0;
+    if (lev === 3) { x -= 540 * v; y -= 30 * v; rot -= 12 * v; sc *= 1 + .15 * v; }
+    g.g1 = [x, y, sc, rot, clamp((t - t1 + .02) * 12)];
+    const pd = seg(t, t1 - .2, t1 + .02), pb = seg(t, t1 + .02, t1 + .4), sq = pb > 0 && pb < .25 ? Math.sin(pb / .25 * Math.PI) : 0;
+    S('hpin', { transform: `translateY(${(1 - eIn(pd)) * -600 - Math.sin(pb * Math.PI) * 40 * (1 - pb)}px) scale(${1 + .18 * sq}, ${1 - .2 * sq})` });
+  }
+  // 2) 다이어트 — the coral tape snaps under it and the word slims
+  {
+    const p2 = spring(seg(t, t2 - .03, t2 + .5));
+    let y = 560 + (LOCK.g2[0] - 560) * u3, x = 960, sc = lerp(1, LOCK.g2[1], u3), rot = 0;
+    if (lev === 3) { x += 540 * v; y += 20 * v; rot += 9 * v; }
+    g.g2 = [x, y, sc, rot, t >= t2 - .03 ? 1 : 0];
+    S('dt', { transform: `scaleX(${lerp(1.45, 1, p2)}) scaleY(${lerp(.85, 1, p2)})` });
+    const tp = seg(t, t2 - .1, t2 + .12);
+    S('tp', { transform: `translateX(${(1 - eOut(tp)) * 1500}px) scaleY(${1 + .25 * Math.sin(seg(t, t2 + .1, t2 + .4) * Math.PI)})` });
+  }
+  // 3) 다산한의원 — slammed like a stamp
+  {
+    const p3 = spring(seg(t, t3 - .02, t3 + .4));
+    let x = 960, y = LOCK.g3[0], sc = lerp(2.1, 1, p3) * (1 + sbeat(t) * .025), rot = lerp(-10, -3, p3);
+    if (lev === 1) { x += 330 * v; sc *= 1 + .2 * v; }
+    if (lev === 3) { sc *= 1 + .18 * v; }
+    g.g3 = [x, y, sc, rot, t >= t3 - .02 ? 1 : 0];
+  }
+  // final: everything sucked into the dot, then the calm lockup snaps back slim
+  if (fin) {
+    const ids = ['g1', 'g2', 'g3'];
+    ids.forEach((id, i) => {
+      const p = spring(seg(t, FIN + i * .05, FIN + i * .05 + .55));
+      const [Ly, Ls] = LOCK[id];
+      g[id] = [960, lerp(540, Ly - 40, p), Ls * p * (id === 'g3' ? 1 + sbeat(t) * .02 : 1), id === 'g3' ? -3 : 0, p > .02 ? 1 : 0];
+    });
+    S('hpin', { transform: 'none' }); S('dt', { transform: 'none' }); S('tp', { transform: 'none' });
+  }
+  for (const id of ['g1', 'g2', 'g3']) {
+    let [x, y, sc, rot, op] = g[id];
+    if (!fin && s > 0) { [x, y] = toDot(x, y); sc *= 1 - sk; op *= sop; }
+    setG(id, x, y, sc, rot, op, fl(t, id.charCodeAt(1), .8));
+  }
+  // the coral dot: the seed every hook grows from
+  let dv = 0;
+  for (let i = 1; i < 4; i++) dv = Math.max(dv, spring(seg(t, HOOKS[i] - .32, HOOKS[i] - .12)) * (1 - seg(t, HOOKS[i] - .1, HOOKS[i] - .02)));
+  dv = Math.max(dv, spring(seg(t, FIN - .22, FIN - .05)) * (1 - seg(t, FIN - .02, FIN + .06)));
+  S('hdot', { opacity: dv > .01 ? 1 : 0, transform: `scale(${dv * (1 + sbeat(t) * .12)})` });
+  // info pill (ending only)
+  const pp = spring(seg(t, FIN + .4, FIN + .95));
+  setG('pill', 960, 985 + (1 - pp) * 80, 1, 0, clamp(pp * 3), fl(t, 7, .5));
+  E.htr.textContent = fin ? '다산한의원' : String(k + 1).padStart(2, '0') + ' / 04';
+  // frame pressure (B-hits push it, every beat breathes it)
+  let pr = 10 * spring(seg(t, t1, t1 + .5)) + 22 * spring(seg(t, t2, t2 + .5)) + (28 + lev * 16) * spring(seg(t, t3, t3 + .5));
+  let im = wob(t - t1, 16 + lev * 4) + wob(t - t2, 26 + lev * 6) + wob(t - t3, 40 + lev * 12);
+  if (!fin && s > 0) { pr *= 1 - eInOut(s); pr -= 26 * Math.sin(Math.PI * s); }
+  let b = { l: pr + im, r: pr + im, t: (pr + im) * .45, b: (pr + im) * .6 };
+  if (lev === 1) b.r += 25 * v * (1 - s);
+  if (lev === 3) { const o = 40 * v * (1 - s); b.l += o; b.r += o; b.t += o; b.b += o; }
+  if (fin) { const q = spring(seg(t, FIN, FIN + .7)); const c = lerp(-50, 0, q); b = { l: c, r: c, t: c * .4, b: c * .4 }; }
+  const br = 4 * sbeat(t);
+  b.l += br; b.r += br; b.t += br * .5; b.b += br * .5;
+  E.hfp.setAttribute('d', framePath(FR, b));
+}
+
+/* ---------- VERSE CARD: the frame is the waistline ---------- */
+function VERSE(t) {
+  const ent = (s, dy = 120) => { const p = seg(t, s - .05, s + .5); return [clamp(p * 5), (1 - spring(p)) * dy]; };
+  const outq = s => seg(t, s, s + .3);
+  const line = (id, y, s, o) => {
+    const [op, dy] = ent(s); const q = o ? outq(o) : 0;
+    S(id, { opacity: Math.min(op, 1 - q), filter: q > 0 ? `blur(${q * 8}px)` : 'none',
+      transform: `translate(-50%,-50%) translate(0px, ${y - 540 + dy - eIn(q) * 120}px) ${fl(t, s)}` });
+  };
+  const belly = spring(seg(t, V.jjuk - .05, V.jjuk + .5)) * (1 - spring(seg(t, V.ssok - .05, V.ssok + .45)));
+  line('l1', 330, V.bae, V.mom - .15);
+  line('l2', 690, V.che, V.mom - .15);
+  line('l3', 330, V.mom, null);
+  line('l4', 690, V.ma, null);
+  S('jj', { opacity: t > V.jjuk - .03 ? 1 : 0, transform: `scaleX(${lerp(1.7, 1, spring(seg(t, V.jjuk - .03, V.jjuk + .45))) + belly * .12})` });
+  S('ss', { opacity: t > V.ssok - .1 ? 1 : 0, transform: `translateY(${(1 - spring(seg(t, V.ssok - .1, V.ssok + .35))) * -160}px)` });
+  const fly = eInOut(seg(t, V.ga - .1, V.ga + .7));
+  S('gb', { transform: `translateY(${-24 * spring(seg(t, V.ga - .05, V.ga + .5)) + Math.sin(t * 2.4) * 8 * fly}px)` });
+  const waist = spring(seg(t, V.ssok - .05, V.ssok + .45)) * (1 - eInOut(seg(t, V.mom, V.mom + .5)));
+  const smile = spring(seg(t, V.jeul - .05, V.jeul + .5));
+  const im = wob(t - V.jjuk, 30) + wob(t - V.ssok, -24) + wob(t - V.jeul, 20), br = 4 * sbeat(t);
+  const side = 150 * belly - 85 * waist + im + br;
+  const b = { l: side, r: side, t: br * .5 + im * .3, b: 70 * belly + 120 * smile + br * .5 + im * .4 };
+  E.vfp.setAttribute('d', framePath(FR, b, { belly, lift: 70 * smile }));
+  // the measuring tape cinches the waist, then falls away when the body gets light
+  const tw = seg(t, V.ssok - .26, V.ssok - .02), tr = seg(t, V.mom, V.mom + .45);
+  const half = lerp(1500, (FR.x1 - FR.x0) / 2 + 85 * waist * .75 + 40, eOut(tw));
+  S('vtape', { opacity: tw > 0 ? 1 - tr : 0, transform: `translateY(${eIn(tr) * 260}px) translateX(${960 - half}px) scaleX(${half * 2 / 1920}) rotate(${tr * 4}deg)`, transformOrigin: '0 50%' });
+  const ey = spring(seg(t, V.jeul - .05, V.jeul + .45));
+  S('ey1', { transform: `scale(${ey * (1 + sbeat(t) * .1)})` }); S('ey2', { transform: `scale(${ey * (1 + sbeat(t) * .1)})` });
+  S('vcard', { transform: `translateY(${-38 * fly + Math.sin(t * 2.4) * 10 * fly}px) rotate(${.8 * fly * Math.sin(t * 1.3)}deg)` });
+}
+
+/* ---------- 3-D: the grid paper falls back into a floor, the words stand up, we walk to 그 건물 ---------- */
+function STAGE3D(t, th, Zc) {
+  const st = Math.sin(th * Math.PI / 180);
+  const a = eInOut(seg(t, M.tilt, M.tilt + .6));
+  const aside = { s1: -120, s2: 560, s3: -560 }, push = { s1: 2200, s2: 1200, s3: 500 }, grow = { s1: 1.7, s2: 1.2, s3: .85 };
+  const zfade = (base, ex = 0) => { const ze = Zc - (1080 - base + ex) * st; return [1 - seg(ze, 350, 900), ze < 1050]; };
+  for (const id of ['s1', 's2', 's3']) {
+    const [o, vis] = zfade(BASE[id], push[id] * a);
+    S(id, { transform: `translate3d(${aside[id] * a}px, ${-push[id] * a}px, 0) rotateX(${-th}deg) scale(${lerp(1, grow[id], a)})`, opacity: vis ? o : 0, visibility: vis ? 'visible' : 'hidden' });
+  }
+  for (const id of ['s33', 'sgeu', 'sbld']) {
+    const [o, vis] = zfade(BASE[id]);
+    S(id, { transform: `rotateX(${-th}deg)`, opacity: vis ? o : 0, visibility: vis ? 'visible' : 'hidden' });
+  }
+  const flatVis = Zc < 2300;
+  if (Zc > 150 && t < M.cut - .4) { S('hdot', { opacity: 0 }); S('pill', { opacity: 0 }); }
+  S('hflat', { visibility: flatVis ? 'visible' : 'hidden' });
+  const rd = eOut(seg(t, M.road, M.road + .7));
+  S('road', { visibility: rd > 0 && Zc < BLD + 800 ? 'visible' : 'hidden', transform: `scaleY(${rd})` });
+  const p33 = spring(seg(t, M.road + .05, M.road + .55));
+  S('t33', { transform: `translate(-50%,-50%) translateY(${(1 - p33) * 120}px) scaleY(${p33})`, opacity: p33 > .01 ? 1 : 0 });
+  S('n33', { transform: `scale(${lerp(1.8, 1, spring(seg(t, M.n33 - .03, M.n33 + .4)))})`, opacity: t > M.n33 - .03 ? 1 : 0 });
+  const pg = seg(t, M.geu - .05, M.geu + .45);
+  S('tgeu', { transform: `translate(-50%,-50%) scale(${lerp(1.9, 1, spring(pg))}) rotate(-4deg)`, opacity: clamp(pg * 6) });
+  const pb = spring(seg(t, M.emart - .08, M.emart + .45));
+  S('bld', { transform: `scaleY(${pb})`, opacity: pb > .01 ? 1 : 0 });
+  const pd = seg(t, M.geu - .3, M.geu), pbn = seg(t, M.geu, M.geu + .4);
+  S('bpin', { opacity: t > M.geu - .3 ? 1 : 0, transform: `translateY(${(1 - eIn(pd)) * -1600 - Math.sin(pbn * Math.PI) * 60 * (1 - pbn)}px)` });
+  const sd = .7 + .3 * Math.sin(t * 6);
+  S('sdot', { transform: `scale(${sd})` });
+}
+
+/* ---------- main ---------- */
+window.render = function (t) {
+  const c = cam2D(t), h = hitAmt(t), b3 = in3D(t);
+  const bx = Math.sin(t * .5) * 7, by = Math.cos(t * .37) * 5 - h * 7, bs = 1 + Math.sin(t * .6) * .006 + h * .022;
+  const th = theta(t), [Zc, dy] = cam3D(t);
+  // wall vs. floor
+  S('wall', { display: b3 ? 'none' : '' });
+  const showWallDeco = c[2] < .985;
+  S('hshadow', { display: showWallDeco ? '' : 'none' });
+  S('hpaper', { visibility: th > 0 ? 'hidden' : 'visible' });
+  E.hcard.style.transformStyle = b3 ? 'preserve-3d' : 'flat';
+  E.hcard.style.transform = th > 0 ? `rotateX(${th}deg)` : 'none';
+  if (b3) {
+    E.world.style.transform = `translate3d(${bx}px, ${dy + by}px, ${Zc}px)`;
+    drawFloor(th, Zc, dy, bx, by);
+  } else {
+    E.world.style.transform = `translate(${W / 2 + bx}px, ${H / 2 + by}px) rotate(${c[3]}deg) scale(${c[2] * bs}) translate(${-c[0]}px, ${-c[1]}px)`;
+    drawWall(c, bx, by, bs);
+  }
+  HOOK(t);
+  if (!b3 && t > 6 && t < 14) VERSE(t); else if (t >= 26) VERSE(13);
+  if (b3) STAGE3D(t, th, Zc);
+  else {
+    ['s1', 's2', 's3'].forEach(id => S(id, { transform: 'none', opacity: 1, visibility: 'visible' }));
+    ['s33', 'sgeu', 'sbld', 'road'].forEach(id => S(id, { visibility: 'hidden' }));
+    S('hflat', { visibility: 'visible' });
+  }
+};
+window.fitAll = async function () {
+  const u = [...new Set($('world').textContent + '0123456789·-/ ')].join('');
+  $('pre').innerHTML = [700, 800, 900].map(w => `<div style="font-family:P;font-weight:${w}">${u}</div>`).join('') + `<div style="font-family:'Black Han Sans'">${u}</div>`;
+  await document.fonts.ready; await new Promise(r => setTimeout(r, 300)); await document.fonts.ready;
+  window.render(0);
+};
+</script>
+</body>
+</html>
