@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="fonts/black-han-sans/400.css">
+<style>
+  @font-face { font-family: P; font-weight: 700; src: url(fonts/Pretendard-Bold.woff2); }
+  @font-face { font-family: P; font-weight: 800; src: url(fonts/Pretendard-ExtraBold.woff2); }
+  @font-face { font-family: P; font-weight: 900; src: url(fonts/Pretendard-Black.woff2); }
+  /* ONE THEME — "줄자": tape-yellow / ink / cream + coral accent. Everything is measured, snapped and stamped. */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: #FFD23F; font-family: P, sans-serif; }
+  #bg { position: absolute; inset: 0; }
+  #cam { position: absolute; inset: 0; }
+  .sec { position: absolute; inset: 0; }
+  .abs { position: absolute; }
+  .c { left: 0; right: 0; text-align: center; }
+  .bhs { font-family: 'Black Han Sans', sans-serif; line-height: 1; white-space: nowrap; letter-spacing: -2px; }
+  .wd { display: inline-block; }
+  #pre { position: absolute; left: -9999px; }
+</style>
+</head>
+<body>
+<canvas id="bg" width="1920" height="1080"></canvas>
+<svg width="0" height="0" style="position:absolute"><defs>
+  <symbol id="pin" viewBox="0 0 100 140"><path d="M50 136 C50 136 8 82 8 50 A42 42 0 0 1 92 50 C92 82 50 136 50 136 Z" fill="#FF5A36" stroke="#141311" stroke-width="7"/><circle cx="50" cy="50" r="16" fill="#F5F0E6" stroke="#141311" stroke-width="6"/></symbol>
+</defs></svg>
+<div id="cam"></div>
+<div id="pre"></div>
+<script>
+const $ = id => document.getElementById(id);
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, k) => a + (b - a) * k;
+const eOut = x => 1 - Math.pow(1 - x, 3);
+const eIn = x => x * x * x;
+const eInOut = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const spring = p => p <= 0 ? 0 : p >= 1 ? 1 : 1 - Math.exp(-6.5 * p) * Math.cos(8.5 * p);
+function hash(n) { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); }
+const Y = '#FFD23F', INK = '#141311', CR = '#F5F0E6', CO = '#FF5A36';
+const W = 1920, H = 1080;
+
+/* ---------- beat clock (128 BPM, from kick analysis) ---------- */
+const P = 0.46884, A0 = 0.0629;
+const bar = k => A0 + 4 * k * P;
+function beatPh(t) { const n = Math.floor((t - A0) / P); return t - (A0 + n * P); }
+function sbeat(t) { const d = beatPh(t); return d < .05 ? eOut(d / .05) : Math.exp(-(d - .05) * 6); }
+
+/* ---------- timeline ---------- */
+const LEAD = .08;
+const HOOKS = [bar(0), bar(2), bar(7), bar(12)];
+const hw = h => [h, h + 2.4 * P, h + 4.9 * P].map(x => Math.max(0, x - LEAD));   // 호평동 / 다이어트 / 다산한의원
+const V = { bae: 7.30, jjuk: 7.80, che: 8.05, ssok: 8.95, mom: 9.45, ga: 9.95, ma: 11.10, jeul: 11.60 };
+const M = { tilt: bar(9), pin: bar(9) + 2 * P, road: 18.60, n33: 19.20, emart: 20.05, geu: 20.75 };
+// scenes: [start, kind, bgMode]
+const SC = [[0, 'hook0', 'y'], [bar(2), 'hook1', 'y'], [7.22, 'verse', 'c'], [bar(7), 'hook2', 'y'], [bar(9) - .02, 'map', 'k'], [bar(12), 'hook3', 'y']];
+const BG = { y: Y, c: CR, k: INK };
+const FG = { y: INK, c: INK, k: CR };
+const sceneAt = t => { let i = 0; SC.forEach((s, k) => { if (t >= s[0]) i = k; }); return i; };
+const HITS = [];
+HOOKS.forEach(h => HITS.push(...hw(h)));
+HITS.push(V.jjuk, V.ssok, M.pin, M.geu, bar(14));
+function hitAmt(t) { let a = 0; for (const h of HITS) { const d = t - h; if (d < 0 || d > 1) continue; a = Math.max(a, d < .06 ? eOut(d / .06) : Math.exp(-(d - .06) * 7)); } return a; }
+
+/* ---------- canvas ---------- */
+const cv = $('bg'), ctx = cv.getContext('2d');
+function rulerEdges(t, mode, x0, x1) {   // the tape-measure ticks that frame every scene
+  const col = mode === 'k' ? 'rgba(245,240,230,.5)' : 'rgba(20,19,17,.55)';
+  ctx.save(); ctx.beginPath(); ctx.rect(x0, 0, x1 - x0, H); ctx.clip();
+  ctx.fillStyle = col; ctx.font = '700 18px P'; ctx.textAlign = 'center';
+  const off = (t * 60) % 40;
+  for (let i = -2; i < W / 20 + 2; i++) {
+    const x = i * 20 - off, n = Math.round((i * 20 - off + t * 60) / 20);
+    const L = n % 10 === 0 ? 34 : n % 5 === 0 ? 22 : 12;
+    ctx.fillRect(x, 0, 3, L); ctx.fillRect(x, H - L, 3, L);
+    if (n % 10 === 0) { ctx.fillText(String(Math.abs(n / 10) % 100), x + 1, 56); ctx.fillText(String(Math.abs(n / 10) % 100), x + 1, H - 40); }
+  }
+  ctx.restore();
+}
+function paintBG(mode, t, x0, x1) {
+  ctx.save(); ctx.beginPath(); ctx.rect(x0, 0, x1 - x0, H); ctx.clip();
+  ctx.fillStyle = BG[mode]; ctx.fillRect(0, 0, W, H);
+  // soft light drift so no frame is ever dead
+  const g = ctx.createRadialGradient(W / 2 + Math.sin(t * .4) * 300, H / 2 + Math.cos(t * .3) * 120, 50, W / 2, H / 2, 1100);
+  g.addColorStop(0, mode === 'k' ? 'rgba(255,210,63,.10)' : 'rgba(255,255,255,.30)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  ctx.restore();
+  rulerEdges(t, mode, x0, x1);
+}
+// the measuring tape that sweeps between scenes (one motif, every transition)
+function tapeBand(x, t) {
+  ctx.save(); ctx.translate(x, H / 2); ctx.rotate(-.06);
+  const w = 230;
+  ctx.fillStyle = Y; ctx.fillRect(-w / 2, -H, w, H * 2);
+  ctx.fillStyle = INK; ctx.fillRect(-w / 2, -H, 8, H * 2); ctx.fillRect(w / 2 - 8, -H, 8, H * 2);
+  ctx.font = '900 34px P'; ctx.textAlign = 'center';
+  for (let i = -40; i < 40; i++) {
+    const yy = i * 24; const L = i % 5 === 0 ? 60 : 28;
+    ctx.fillRect(-w / 2, yy, L, 4); ctx.fillRect(w / 2 - L, yy, L, 4);
+    if (i % 5 === 0) { ctx.save(); ctx.translate(0, yy); ctx.rotate(Math.PI / 2); ctx.fillStyle = i % 10 === 0 ? CO : INK; ctx.fillText(String(Math.abs(i) * 2), 0, 12); ctx.restore(); ctx.fillStyle = INK; }
+  }
+  ctx.restore();
+}
+function ring(cx, cy, t0, t, col, maxR = 900) {
+  const q = seg(t, t0, t0 + .7); if (q <= 0 || q >= 1) return;
+  ctx.strokeStyle = col; ctx.globalAlpha = (1 - q) * .7; ctx.lineWidth = 10 * (1 - q) + 2;
+  ctx.beginPath(); ctx.arc(cx, cy, 80 + eOut(q) * maxR, 0, 7); ctx.stroke(); ctx.globalAlpha = 1;
+}
+
+/* ---------- DOM ---------- */
+const conts = {};
+function cont(name) { if (!conts[name]) { const c = document.createElement('div'); c.className = 'sec'; c.id = 'S_' + name; $('cam').appendChild(c); conts[name] = c; c._b = false; } return conts[name]; }
+function build(c, html) { if (c._b) return; c._b = true; c.innerHTML = html; c._ids = {}; c.querySelectorAll('[id]').forEach(e => c._ids[e.id] = e); }
+function st(c, id, o) { const e = c._ids[id]; if (!e) return; for (const k in o) e.style[k] = o[k]; }
+const fl = (t, s, a = 1) => `translate(${Math.cos(t * 1.2 + s) * 3 * a}px, ${Math.sin(t * 1.7 + s) * 4 * a}px)`;
+
+/* ---------- HOOK: identical every time (the earworm) ---------- */
+const HOOK_HTML = `
+  <div class="abs c" id="g1" style="top:340px"><div class="wd" style="position:relative">
+    <svg id="hpin" width="120" height="168" style="position:absolute; left:50%; top:-165px; margin-left:-60px"><use href="#pin" width="120" height="168"/></svg>
+    <span class="bhs" style="font-size:300px; color:${INK}">호평동</span></div></div>
+  <div class="abs c" id="g2" style="top:340px"><div class="wd" style="position:relative">
+    <div id="tp" style="position:absolute; left:-50px; right:-50px; top:292px; height:58px; background:${CO}; border:7px solid ${INK}; border-radius:8px;
+      background-image:repeating-linear-gradient(90deg, ${INK} 0 4px, transparent 4px 26px); background-size:auto 22px; background-repeat:repeat-x"></div>
+    <span id="dt" class="bhs wd" style="position:relative; font-size:300px; color:${INK}">다이어트</span></div></div>
+  <div class="abs c" id="info" style="top:905px; opacity:0"><span style="display:inline-block; background:${INK}; color:${CR}; border-radius:999px; padding:14px 46px; font-weight:800; font-size:46px; letter-spacing:1px">남양주 호평동 · 호평로 33 · 031-559-8101</span></div>
+  <div class="abs c" id="g3" style="top:345px"><span class="bhs wd" id="stamp" style="font-size:230px; color:${Y}; background:${INK}; padding:28px 70px 44px; border-radius:40px; box-shadow:0 18px 0 rgba(20,19,17,.25)">다산한의원</span></div>`;
+function HOOK(t, idx) {
+  const c = cont('hook' + idx); build(c, HOOK_HTML);
+  const [t1, t2, t3] = hw(HOOKS[idx]);
+  // 1) 호평동 — pin drops and the word stamps in
+  const p1 = seg(t, t1, t1 + .45), up1 = spring(seg(t, t2 - .04, t2 + .4)), up1b = spring(seg(t, t3 - .04, t3 + .4));
+  const y1 = lerp(0, -250, up1) + lerp(0, -45, up1b), s1 = lerp(1, .48, up1);
+  st(c, 'g1', { opacity: clamp((t - t1 + .02) * 12), transform: `${fl(t, 1)} translateY(${y1}px) scale(${lerp(1.55, 1, spring(p1)) * s1})` });
+  const pd = seg(t, t1 - .2, t1 + .02), pb = seg(t, t1 + .02, t1 + .4);
+  st(c, 'hpin', { transform: `translateY(${(1 - eIn(pd)) * -600 - Math.sin(pb * Math.PI) * 40 * (1 - pb)}px) scale(${1 + (pb > 0 && pb < .25 ? .18 * Math.sin(pb / .25 * Math.PI) : 0)}, ${1 - (pb > 0 && pb < .25 ? .2 * Math.sin(pb / .25 * Math.PI) : 0)})` });
+  // 2) 다이어트 — the tape snaps around it and the word slims down
+  const vis2 = t >= t2 - .03;
+  const p2 = seg(t, t2 - .03, t2 + .5), up2 = spring(seg(t, t3 - .04, t3 + .4));
+  st(c, 'g2', { opacity: vis2 ? 1 : 0, transform: `${fl(t, 2)} translateY(${lerp(0, -110, up2)}px) scale(${lerp(1, .6, up2)})` });
+  st(c, 'dt', { transform: `scaleX(${lerp(1.45, 1, spring(p2))}) scaleY(${lerp(.85, 1, spring(p2))})` });
+  const tp = seg(t, t2 - .1, t2 + .12);
+  st(c, 'tp', { transform: `translateX(${(1 - eOut(tp)) * 1500}px) scaleY(${1 + .25 * Math.sin(seg(t, t2 + .1, t2 + .4) * Math.PI)})` });
+  // 3) 다산한의원 — slammed like a stamp
+  const p3 = seg(t, t3 - .02, t3 + .4);
+  st(c, 'g3', { opacity: t >= t3 - .02 ? 1 : 0, transform: `${fl(t, 3, .6)} translateY(175px) scale(${lerp(2.1, 1, spring(p3)) * (1 + sbeat(t) * .025)}) rotate(${lerp(-10, -3, spring(p3))}deg)` });
+  if (idx === 3) { const p = seg(t, bar(14) - .05, bar(14) + .5); st(c, 'info', { opacity: clamp(p * 4), transform: `${fl(t, 4, .5)} translateY(${(1 - spring(p)) * 120}px)` }); }
+  return [t3];
+}
+
+/* ---------- VERSE: the belly circle gets measured ---------- */
+function VERSE(t) {
+  const c = cont('verse');
+  build(c, `
+    <div class="abs bhs" id="l1" style="left:150px; top:250px; font-size:170px; color:${INK}">뱃살은 <span id="jj" class="wd" style="color:${CO}">쭉!</span></div>
+    <div class="abs bhs" id="l2" style="left:150px; top:450px; font-size:170px; color:${INK}">체질 맞춰 <span id="ss" class="wd" style="color:${CO}">쏙!</span></div>
+    <div class="abs bhs" id="l3" style="left:150px; top:330px; font-size:170px; color:${INK}">몸은 가볍게</div>
+    <div class="abs bhs" id="l4" style="left:150px; top:560px; font-size:170px; color:${INK}">마음은 <span class="wd" style="color:${CO}">즐겁게</span></div>`);
+  const ent = (s, dx = -160) => { const p = seg(t, s - .05, s + .5); return { opacity: clamp(p * 5), transform: `${fl(t, s)} translateX(${(1 - spring(p)) * dx}px)` }; };
+  const out = (o, s) => { const q = seg(t, s, s + .3); o.opacity = String(Math.min(+o.opacity, 1 - q)); o.transform += ` translateY(${-eIn(q) * 120}px)`; o.filter = q > 0 ? `blur(${q * 8}px)` : 'none'; return o; };
+  st(c, 'l1', out(ent(V.bae), V.mom - .15));
+  st(c, 'l2', out(ent(V.che), V.mom - .15));
+  st(c, 'l3', out(ent(V.mom), V.ma - .12));
+  st(c, 'l4', ent(V.ma));
+  st(c, 'jj', { transform: `scale(${lerp(1.6, 1, spring(seg(t, V.jjuk - .03, V.jjuk + .4)))})`, opacity: t > V.jjuk - .03 ? 1 : 0 });
+  st(c, 'ss', { transform: `translateY(${(1 - spring(seg(t, V.ssok - .1, V.ssok + .35))) * -160}px)`, opacity: t > V.ssok - .1 ? 1 : 0 });
+  // canvas: belly circle → squeezed by the tape → drops into its slot → floats light → smiles
+  const cx = 1420; let cy = 560;
+  const sq = spring(seg(t, V.jjuk - .05, V.jjuk + .45));
+  let sx = lerp(1, .58, sq), sy = lerp(1, 1.12, sq);
+  const drop = spring(seg(t, V.ssok - .12, V.ssok + .35));
+  const slotY = 800;
+  cy = lerp(cy, slotY - 150, drop);
+  const fly = eInOut(seg(t, V.mom, V.ga + .5)); cy = lerp(cy, 470, fly) + Math.sin(t * 3) * 10 * fly;
+  // slot (the "체질" mould)
+  const so = seg(t, V.che - .1, V.che + .3) * (1 - seg(t, V.mom, V.mom + .3));
+  if (so > 0) { ctx.save(); ctx.globalAlpha = so; ctx.strokeStyle = INK; ctx.lineWidth = 10; ctx.setLineDash([26, 16]); ctx.beginPath(); ctx.ellipse(cx, slotY - 150, 200 * .58 + 18, 200 * 1.12 + 18, 0, 0, 7); ctx.stroke(); ctx.setLineDash([]); ctx.restore(); }
+  const vin = spring(seg(t, V.bae - .1, V.bae + .4));
+  ctx.save(); ctx.translate(cx, cy); ctx.scale(sx * vin * (1 + sbeat(t) * .03), sy * vin * (1 - sbeat(t) * .03));
+  ctx.fillStyle = CO; ctx.strokeStyle = INK; ctx.lineWidth = 10 / sx; ctx.beginPath(); ctx.arc(0, 0, 200, 0, 7); ctx.fill(); ctx.stroke();
+  // smile when 마음은 즐겁게
+  const sm = spring(seg(t, V.ma, V.ma + .4));
+  if (sm > 0) { ctx.fillStyle = INK; ctx.globalAlpha = clamp(sm * 2); ctx.beginPath(); ctx.arc(-60, -40, 22, 0, 7); ctx.arc(60, -40, 22, 0, 7); ctx.fill(); ctx.lineWidth = 18; ctx.lineCap = 'round'; ctx.beginPath(); ctx.arc(0, 10, 90 * sm, .15 * Math.PI, .85 * Math.PI); ctx.stroke(); ctx.globalAlpha = 1; }
+  ctx.restore();
+  // the tape cinching the waist
+  const tw = seg(t, V.jjuk - .18, V.jjuk + .02) * (1 - seg(t, V.mom - .1, V.mom + .2));
+  if (tw > 0) {
+    const half = lerp(1100, 200 * sx + 30, eOut(tw));
+    ctx.save(); ctx.translate(cx, cy); ctx.fillStyle = Y; ctx.strokeStyle = INK; ctx.lineWidth = 7;
+    ctx.fillRect(-half, -36, half * 2, 72); ctx.strokeRect(-half, -36, half * 2, 72);
+    ctx.fillStyle = INK; for (let x = -half; x < half; x += 22) ctx.fillRect(x, -36, 4, (Math.round(x / 22) % 5 === 0) ? 30 : 16);
+    ctx.restore();
+  }
+  // floating string when light
+  if (fly > 0) { ctx.strokeStyle = INK; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(cx, cy + 200 * sy); ctx.quadraticCurveTo(cx + Math.sin(t * 3) * 40, cy + 330, cx - 10, cy + 420); ctx.globalAlpha = fly * (1 - sm); ctx.stroke(); ctx.globalAlpha = 1; }
+}
+
+/* ---------- MAP: flat paper tilts into a 3-D 호평동 street ---------- */
+function MAP(t) {
+  const c = cont('map');
+  build(c, `
+    <div class="abs c bhs" id="m1" style="top:110px; font-size:120px; color:${CR}">남양주 <span style="color:${Y}">호평동</span></div>
+    <div class="abs bhs" id="m2" style="left:150px; top:300px; font-size:150px; color:${CR}">호평로 <span id="m33" class="wd" style="color:${Y}">33</span></div>
+    <div class="abs" id="bld" style="left:1180px; top:430px; width:420px; height:300px; background:${CR}; border:9px solid ${CR}; border-radius:14px; box-shadow:18px 18px 0 rgba(245,240,230,.25)">
+      <div style="position:absolute; inset:0; background:repeating-linear-gradient(90deg, transparent 0 46px, ${INK} 46px 52px), repeating-linear-gradient(0deg, transparent 0 54px, ${INK} 54px 60px); opacity:.18"></div>
+      <div class="bhs" style="position:absolute; left:0; right:0; top:30px; text-align:center; font-size:84px; color:${INK}">이마트</div></div>
+    <svg class="abs" id="mpin" style="left:1330px; top:250px" width="120" height="168"><use href="#pin" width="120" height="168"/></svg>
+    <div class="abs bhs" id="m3" style="left:1050px; top:780px; font-size:150px; color:${Y}">그 건물!</div>`);
+  // perspective floor grid
+  const tl = eInOut(seg(t, M.tilt, M.tilt + .55));
+  const hz = lerp(-200, 470, tl);           // horizon line
+  ctx.save(); ctx.strokeStyle = 'rgba(255,210,63,.55)'; ctx.lineWidth = 2;
+  const flow = (t * 120) % 90;
+  for (let i = 0; i < 26; i++) {           // depth lines
+    const z = (i * 90 + flow) / (26 * 90);  // 0..1 near→far
+    const yy = lerp(H + 40 - z * (H + 240), hz + (H + 40 - hz) * Math.pow(1 - z, 2.6), tl);
+    ctx.globalAlpha = .25 + .75 * (1 - z); ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(W, yy); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  for (let j = -14; j <= 14; j++) {         // lines to the vanishing point
+    const xb = W / 2 + j * 160, xt = lerp(xb, W / 2 + j * 18, tl);
+    ctx.beginPath(); ctx.moveTo(xb, H + 40); ctx.lineTo(xt, hz); ctx.stroke();
+  }
+  // the main road (호평로)
+  const rd = seg(t, M.road - .2, M.road + .3);
+  if (rd > 0) { ctx.fillStyle = 'rgba(245,240,230,.9)'; ctx.beginPath(); ctx.moveTo(W / 2 - 260, H + 40); ctx.lineTo(W / 2 + 260, H + 40); ctx.lineTo(W / 2 + 24, hz); ctx.lineTo(W / 2 - 24, hz); ctx.closePath(); ctx.globalAlpha = rd * .22; ctx.fill(); ctx.globalAlpha = 1;
+    ctx.strokeStyle = Y; ctx.lineWidth = 8; ctx.setLineDash([60, 40]); ctx.lineDashOffset = -t * 300; ctx.beginPath(); ctx.moveTo(W / 2, H + 40); ctx.lineTo(W / 2, hz + (H - hz) * (1 - rd)); ctx.stroke(); ctx.setLineDash([]); }
+  ctx.restore();
+  ring(1390, 700, M.pin, t, Y);
+  ring(1390, 700, M.geu, t, CO);
+  const e = (s, dy = -120) => { const p = seg(t, s - .05, s + .5); return { opacity: clamp(p * 5), transform: `${fl(t, s)} translateY(${(1 - spring(p)) * dy}px)` }; };
+  st(c, 'm1', e(bar(9) + .05));
+  st(c, 'm2', e(M.road, 140));
+  st(c, 'm33', { transform: `scale(${lerp(1.7, 1, spring(seg(t, M.n33 - .03, M.n33 + .4)))})`, opacity: t > M.n33 - .03 ? 1 : 0 });
+  const b = spring(seg(t, M.emart - .1, M.emart + .45));
+  st(c, 'bld', { opacity: clamp(b * 4), transform: `${fl(t, 9, .5)} translateY(${(1 - b) * 260}px) scaleY(${b})`, transformOrigin: '50% 100%' });
+  const pd = seg(t, M.pin - .25, M.pin), ph = seg(t, M.emart, M.emart + .3), pb = seg(t, M.pin, M.pin + .4);
+  // the pin first lands on the street, then hops onto the building
+  const px = lerp(-560, 0, eInOut(ph)), py = lerp(330, 0, eInOut(ph)) - Math.sin(ph * Math.PI) * 220;
+  st(c, 'mpin', { opacity: t > M.pin - .25 ? 1 : 0, transform: `translate(${px}px, ${(1 - eIn(pd)) * -800 + py - Math.sin(pb * Math.PI) * 30 * (1 - pb)}px) scale(${1 + sbeat(t) * .06})` });
+  const g = seg(t, M.geu - .05, M.geu + .45);
+  st(c, 'm3', { opacity: clamp(g * 5), transform: `scale(${lerp(1.8, 1, spring(g))}) rotate(-4deg)` });
+}
+
+/* ---------- main ---------- */
+const RUN = { hook0: t => HOOK(t, 0), hook1: t => HOOK(t, 1), verse: VERSE, hook2: t => HOOK(t, 2), map: MAP, hook3: t => HOOK(t, 3) };
+const WIPE = .34;
+window.render = function (t) {
+  const i = sceneAt(t), s = SC[i];
+  const prev = i > 0 ? SC[i - 1] : null;
+  const wp = prev ? seg(t, s[0] - WIPE / 2, s[0] + WIPE / 2) : 1;
+  // tape position sweeps left → right; new scene revealed behind it
+  const tx = lerp(-200, W + 200, eInOut(wp));
+  // also handle the wipe that STARTS before this scene's start (lead-in half)
+  const nxt = SC[i + 1], wn = nxt ? seg(t, nxt[0] - WIPE / 2, nxt[0] + WIPE / 2) : 0;
+  Object.values(conts).forEach(c => c.style.display = 'none');
+  const show = (sc, x0, x1) => {
+    paintBG(sc[2], t, x0, x1);
+    const c = cont(sc[1]); RUN[sc[1]](t);
+    c.style.display = ''; c.style.clipPath = `inset(0 ${W - x1}px 0 ${x0}px)`;
+  };
+  ctx.globalAlpha = 1;
+  if (wn > 0) {                      // second half: next scene sweeping in over this one
+    const x = lerp(-200, W + 200, eInOut(wn));
+    show(s, Math.max(0, x), W); show(nxt, 0, Math.max(0, x)); tapeBand(x, t);
+  } else if (prev && wp < 1) {
+    show(prev, Math.max(0, tx), W); show(s, 0, Math.max(0, tx)); tapeBand(tx, t);
+  } else show(s, 0, W);
+  // camera: breathing + soft bump on every hit
+  const h = hitAmt(t);
+  $('cam').style.transform = `translate(${Math.sin(t * .5) * 8}px, ${Math.cos(t * .37) * 6 - h * 8}px) scale(${1.015 + Math.sin(t * .6) * .01 + h * .03})`;
+};
+window.fitAll = async function () {
+  let txt = '';
+  for (let t = 0; t < 30; t += .2) { window.render(t); txt += $('cam').textContent; }
+  const u = [...new Set(txt + '0123456789·-')].join('');
+  $('pre').innerHTML = [700, 800, 900].map(w => `<div style="font-family:P;font-weight:${w}">${u}</div>`).join('') + `<div style="font-family:'Black Han Sans'">${u}</div>`;
+  await document.fonts.ready; await new Promise(r => setTimeout(r, 300)); await document.fonts.ready;
+  window.render(0);
+};
+</script>
+</body>
+</html>

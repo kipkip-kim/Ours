@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="fonts/black-han-sans/400.css">
+<style>
+  @font-face { font-family: P; font-weight: 800; src: url(fonts/Pretendard-ExtraBold.woff2); }
+  @font-face { font-family: P; font-weight: 900; src: url(fonts/Pretendard-Black.woff2); }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: #F5F0E6; }
+  #pre { position: absolute; left: -9999px; }
+</style>
+</head>
+<body>
+<canvas id="cv" width="1920" height="1080"></canvas>
+<div id="pre"></div>
+<script>
+/* ONE LONG TAKE — "줄자 한 줄이 30초를 끝까지 그린다".
+   A coral measuring cord never breaks: it draws the pin, cinches 다이어트, frames the stamp, wraps the belly,
+   becomes the mould, the balloon string, the smile; we dive through the smile's eye, the tape lies down as 호평로,
+   rises as the building, and finally the whole tape snaps back into its case. */
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, k) => a + (b - a) * k;
+const eOut = x => 1 - Math.pow(1 - x, 3);
+const eIn = x => x * x * x;
+const eInOut = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const spring = p => p <= 0 ? 0 : p >= 1 ? 1 : 1 - Math.exp(-6.5 * p) * Math.cos(8.5 * p);
+const Y = '#FFD23F', INK = '#141311', CR = '#F5F0E6', CO = '#FF5A36';
+const W = 1920, H = 1080, BH = '"Black Han Sans"';
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+
+/* ---------- beat clock & song map (128 BPM, kick-fitted) ---------- */
+const P = 0.46884, A0 = 0.0629, bar = k => A0 + 4 * k * P;
+const beatPh = t => { const n = Math.floor((t - A0) / P); return t - (A0 + n * P); };
+const sbeat = t => { const d = beatPh(t); return d < .05 ? eOut(d / .05) : Math.exp(-(d - .05) * 6); };
+const LEAD = .08;
+const HOOKS = [bar(0), bar(2), bar(7), bar(12)];
+const hw = k => [0, 2.4 * P, 4.9 * P].map(o => Math.max(0, HOOKS[k] + o - LEAD));
+const V = { bae: 7.30, jjuk: 7.80, che: 8.05, ssok: 8.95, mom: 9.45, ga: 9.95, ma: 11.10, jeul: 11.60 };
+const R = { title: 17.05, road: 18.60, n33: 19.20, emart: 20.05, pin: 20.30, geu: 20.75 };
+const HITS = [];
+[0, 1, 2, 3].forEach(k => HITS.push(...hw(k)));
+HITS.push(V.jjuk, V.ssok, R.n33, R.pin, R.geu, 27.45);
+function hitAmt(t) { let a = 0; for (const h of HITS) { const d = t - h; if (d < 0 || d > 1) continue; a = Math.max(a, d < .06 ? eOut(d / .06) : Math.exp(-(d - .06) * 7)); } return a; }
+
+/* ---------- drawing helpers ---------- */
+function txt(g, s, x, y, size, col, o = {}) {
+  g.save(); g.translate(x, y); if (o.rot) g.rotate(o.rot); g.scale(o.sx || 1, o.sy || 1);
+  g.font = `${o.weight || ''} ${size}px ${o.font || BH}`; g.textAlign = o.align || 'center'; g.textBaseline = 'middle';
+  g.globalAlpha = o.a ?? 1; g.fillStyle = col; g.fillText(s, 0, size * .04); g.restore();
+}
+function rrect(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+function plen(pts) { const L = [0]; for (let i = 1; i < pts.length; i++) L.push(L[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1])); return L; }
+// the protagonist: a coral measuring cord with ink edge and tick marks, drawn up to length `len`
+function cord(g, pts, len, w = 16) {
+  if (len <= 0 || pts.length < 2) return;
+  const L = plen(pts); const sub = [pts[0]];
+  for (let i = 1; i < pts.length; i++) {
+    if (L[i] <= len) sub.push(pts[i]);
+    else { const k = (len - L[i - 1]) / (L[i] - L[i - 1]); sub.push([lerp(pts[i - 1][0], pts[i][0], k), lerp(pts[i - 1][1], pts[i][1], k)]); break; }
+  }
+  g.save(); g.lineCap = 'round'; g.lineJoin = 'round';
+  g.beginPath(); sub.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]));
+  g.strokeStyle = INK; g.lineWidth = w + 8; g.stroke(); g.strokeStyle = CO; g.lineWidth = w; g.stroke();
+  // ticks
+  g.strokeStyle = INK; g.lineWidth = 3; let acc = 0, next = 24;
+  for (let i = 1; i < sub.length; i++) {
+    const [x0, y0] = sub[i - 1], [x1, y1] = sub[i], d = Math.hypot(x1 - x0, y1 - y0); if (d < .01) continue;
+    const nx = -(y1 - y0) / d, ny = (x1 - x0) / d;
+    while (acc + d >= next) { const k = (next - acc) / d, x = lerp(x0, x1, k), y = lerp(y0, y1, k), tl = (Math.round(next / 24) % 5 === 0) ? w * .55 : w * .3;
+      g.beginPath(); g.moveTo(x + nx * w / 2, y + ny * w / 2); g.lineTo(x + nx * (w / 2 - tl), y + ny * (w / 2 - tl)); g.stroke(); next += 24; }
+    acc += d;
+  }
+  g.restore();
+}
+function keyLen(t, keys) { // [[time, len], ...] eased between keys
+  if (t <= keys[0][0]) return keys[0][1];
+  for (let i = 1; i < keys.length; i++) if (t < keys[i][0]) return lerp(keys[i - 1][1], keys[i][1], eInOut(seg(t, keys[i - 1][0], keys[i][0])));
+  return keys[keys.length - 1][1];
+}
+function pinShape(g, cx, cy, s, fillA) {   // teardrop pin, tip at (cx, cy + 110s)
+  g.save(); g.translate(cx, cy); g.scale(s, s); g.globalAlpha = fillA;
+  g.beginPath(); for (let i = 0; i <= 64; i++) { const th = Math.PI / 2 + i / 64 * Math.PI * 2, r = 60 + 50 * Math.pow(Math.max(0, Math.cos(th - Math.PI / 2)), 8); g.lineTo(Math.cos(th) * r, Math.sin(th) * r); }
+  g.fillStyle = CO; g.fill(); g.lineWidth = 8; g.strokeStyle = INK; g.stroke();
+  g.beginPath(); g.arc(0, -4, 22, 0, 7); g.fillStyle = CR; g.fill(); g.stroke(); g.restore();
+}
+function pinPts(cx, cy) { const a = []; for (let i = 0; i <= 64; i++) { const th = Math.PI / 2 + i / 64 * Math.PI * 2, r = 60 + 50 * Math.pow(Math.max(0, Math.cos(th - Math.PI / 2)), 8); a.push([cx + Math.cos(th) * r, cy + Math.sin(th) * r]); } return a; }
+function rulerEdges(g, x0, x1, yTop, yBot, scroll, col = 'rgba(20,19,17,.6)', step = 20) {
+  g.save(); g.fillStyle = col; g.font = `800 20px P`; g.textAlign = 'center';
+  const s0 = Math.floor((x0 + scroll) / step) - 1;
+  for (let n = s0; n * step - scroll < x1 + step; n++) {
+    const x = n * step - scroll, L = n % 10 === 0 ? 36 : n % 5 === 0 ? 22 : 12;
+    g.fillRect(x, yTop, 3, L); g.fillRect(x, yBot - L, 3, L);
+    if (n % 10 === 0) { g.fillText(String(Math.abs(n / 10)), x + 1, yTop + 58); g.fillText(String(Math.abs(n / 10)), x + 1, yBot - 46); }
+  }
+  g.restore();
+}
+const float = (t, s, a = 1) => [Math.cos(t * 1.2 + s) * 3 * a, Math.sin(t * 1.7 + s) * 4 * a];
+
+/* ---------- offscreen panels ---------- */
+const mk = () => { const c = document.createElement('canvas'); c.width = W; c.height = H; return c; };
+const offH = [mk(), mk(), mk(), mk()], offV = mk(), offR = mk();
+
+/* ---------- HOOK panel (identical each time) ---------- */
+const HK = (() => {   // geometry in panel px
+  const enter = [[0, 140], [260, 140], [430, 230], [560, 330]];
+  const loop = pinPts(560, 220);                         // starts & ends at the tip (560,330)
+  const toLine = [[560, 330], [520, 520], [460, 668]];
+  const under = [[460, 668], [1460, 668]];
+  const frame = [[1460, 668], [1480, 715], [1480, 955], [440, 955], [440, 715], [1480, 715]];
+  const exit = [[1480, 715], [1600, 835], [1920, 835]];
+  const pts = [...enter, ...loop.slice(1), ...toLine.slice(1), ...under.slice(1), ...frame.slice(1), ...exit.slice(1)];
+  const Ls = [enter, loop, toLine, under, frame, exit].map(p => plen(p).pop());
+  const cum = Ls.reduce((a, l) => (a.push(a[a.length - 1] + l), a), [0]);
+  return { pts, cum };
+})();
+function drawHook(k, t, withBg) {
+  const g = offH[k].getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, H);
+  if (withBg) { g.fillStyle = Y; g.fillRect(0, 0, W, H); rulerEdges(g, 0, W, 0, H, t * 60); }
+  const [t1, t2, t3] = hw(k), c = HK.cum;
+  const end = k < 3 ? (k === 2 ? 16.6 : HOOKS[k] + 3.2) : 26.2;
+  const len = keyLen(t, [[t1 - .45, 0], [t1 - .04, c[1]], [t1 + .32, c[2]], [t2 - .3, c[2]], [t2 - .06, c[3]], [t2 + .18, c[4]], [t3 - .32, c[4]], [t3 + .06, c[5]], [end - .5, c[5]], [end, c[6]]]);
+  // 1) 호평동 + pin
+  const p1 = seg(t, t1, t1 + .45), f1 = float(t, 1);
+  if (t > t1 - .02) {
+    pinShape(g, 560 + f1[0], 220 + f1[1], lerp(1.25, 1, spring(p1)), clamp((t - t1) * 8));
+    txt(g, '호평동', 1080 + f1[0], 225 + f1[1], 210, INK, { sx: lerp(1.5, 1, spring(p1)), sy: lerp(1.5, 1, spring(p1)) });
+  }
+  // 2) 다이어트 — slims down as the cord cinches under it
+  const p2 = seg(t, t2 - .03, t2 + .5), f2 = float(t, 2);
+  if (t > t2 - .03) txt(g, '다이어트', 960 + f2[0], 520 + f2[1], 250, INK, { sx: lerp(1.45, 1, spring(p2)) * (1 - sbeat(t) * .02), sy: lerp(.85, 1, spring(p2)) });
+  // 3) 다산한의원 stamp
+  const p3 = seg(t, t3 - .02, t3 + .4);
+  if (t > t3 - .02) {
+    g.save(); g.translate(960, 835); const s = lerp(2, 1, spring(p3)) * (1 + sbeat(t) * .02); g.scale(s, s); g.rotate(lerp(-.14, -.035, spring(p3)));
+    g.fillStyle = 'rgba(20,19,17,.25)'; rrect(g, -500, -105 + 16, 1000, 210, 40); g.fill();
+    g.fillStyle = INK; rrect(g, -500, -105, 1000, 210, 40); g.fill();
+    txt(g, '다산한의원', 0, 0, 180, Y); g.restore();
+  }
+  cord(g, HK.pts, len, 16);
+  return offH[k];
+}
+
+/* ---------- VERSE panel ---------- */
+function shapeTo(n, f) { const a = []; for (let i = 0; i < n; i++) a.push(f(i / (n - 1))); return a; }
+function morph(A, B, k) { return A.map((p, i) => [lerp(p[0], B[i][0], k), lerp(p[1], B[i][1], k)]); }
+function drawVerse(t) {
+  const g = offV.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, H);
+  // text lines
+  const line = (s, x, y, t0, tOut, accent) => {
+    const p = seg(t, t0 - .05, t0 + .5); if (p <= 0) return; const q = tOut ? seg(t, tOut, tOut + .3) : 0; if (q >= 1) return;
+    const f = float(t, t0);
+    g.save(); g.globalAlpha = clamp(p * 5) * (1 - q); g.translate(x + (1 - spring(p)) * -160 + f[0], y - eIn(q) * 120 + f[1]);
+    g.font = `170px ${BH}`; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillStyle = INK;
+    let xx = 0; s.forEach(([w, col, tt]) => { if (tt && t < tt - .03) return; const ps = tt ? spring(seg(t, tt - .03, tt + .4)) : 1;
+      g.save(); g.translate(xx, 0); g.scale(lerp(1.6, 1, ps), lerp(1.6, 1, ps)); g.fillStyle = col; g.fillText(w, 0, 6); g.restore(); xx += g.measureText(w + ' ').width; });
+    g.restore();
+  };
+  line([['뱃살은', INK], ['쭉!', CO, V.jjuk]], 150, 330, V.bae, V.mom - .15);
+  line([['체질 맞춰', INK], ['쏙!', CO, V.ssok]], 150, 530, V.che, V.mom - .15);
+  line([['몸은 가볍게', INK]], 150, 420, V.mom, V.ma - .12);
+  line([['마음은', INK], ['즐겁게', CO, V.jeul]], 150, 640, V.ma);
+  // belly → slim → in the mould → balloon → smile
+  const cx = 1420, slotY = 650;
+  const sq = spring(seg(t, V.jjuk - .05, V.jjuk + .45));
+  const sx = lerp(1, .58, sq), sy = lerp(1, 1.12, sq);
+  let cy = lerp(560, slotY, spring(seg(t, V.ssok - .12, V.ssok + .35)));
+  const fly = eInOut(seg(t, V.mom, V.ga + .5)); cy = lerp(cy, 440, fly) + Math.sin(t * 3) * 10 * fly;
+  const vin = spring(seg(t, 7.0, 7.45)), r = 200;
+  // cord shapes (all 80 points) — the cord never breaks, it morphs
+  const N = 80;
+  const A = shapeTo(N, u => [cx, lerp(-20, cy - r * sy - 10, u)]);                                                  // drop from the top
+  const Bw = shapeTo(N, u => [cx + Math.cos(u * Math.PI * 2 + Math.PI / 2) * (r * sx + 16), cy + Math.sin(u * Math.PI * 2 + Math.PI / 2) * 36]);   // waist band
+  const C = shapeTo(N, u => [cx + Math.cos(u * Math.PI * 2 + Math.PI / 2) * (r * .58 + 22), slotY + Math.sin(u * Math.PI * 2 + Math.PI / 2) * (r * 1.12 + 22)]); // mould
+  const D = shapeTo(N, u => [cx + Math.sin(u * 7 + t * 3) * 18 * u, cy + r * sy + u * 320]);                          // balloon string
+  const E = shapeTo(N, u => [cx + Math.cos(Math.PI * (.85 - .7 * u)) * 95 * sx * 1.6, cy + 20 + Math.sin(Math.PI * (.85 - .7 * u)) * 80]);   // smile
+  let pts, len = 1e9;
+  const kB = eInOut(seg(t, 7.55, 7.85)), kC = eInOut(seg(t, V.che - .05, V.che + .45)), kD = eInOut(seg(t, V.mom - .1, V.mom + .35)), kE = eInOut(seg(t, V.ma, V.ma + .45));
+  if (t < 7.55) { pts = A; len = keyLen(t, [[7.0, 0], [7.5, plen(A).pop()]]); }
+  else if (kC <= 0) pts = morph(A, Bw, kB);
+  else if (kD <= 0) pts = morph(Bw, C, kC);
+  else if (kE <= 0) pts = morph(C, D, kD);
+  else pts = morph(D, E, kE);
+  // mould ghost (dashed) helps read "쏙"
+  // belly body
+  if (vin > 0) {
+    g.save(); g.translate(cx, cy); g.scale(sx * vin * (1 + sbeat(t) * .03), sy * vin * (1 - sbeat(t) * .03));
+    g.fillStyle = Y; g.strokeStyle = INK; g.lineWidth = 10 / sx; g.beginPath(); g.arc(0, 0, r, 0, 7); g.fill(); g.stroke();
+    g.restore();
+    const eye = spring(seg(t, V.ma + .2, V.ma + .5));
+    if (eye > 0) { g.fillStyle = INK; g.beginPath(); g.arc(cx - 62 * sx, cy - 50 * sy, 24 * eye, 0, 7); g.arc(cx + 62 * sx, cy - 50 * sy, 24 * eye, 0, 7); g.fill(); }
+  }
+  const behind = kC > 0 && kD <= 0;   // mould sits around the shape
+  cord(g, pts, len, 16);
+  return { cx, cy, sx, sy };
+}
+// eye position in verse-panel coords (for the dive)
+function eyePos(t) { const s = drawVerse.last || { cx: 1420, cy: 440, sx: .58, sy: 1.12 }; return [s.cx + 62 * s.sx, s.cy - 50 * s.sy]; }
+
+/* ---------- ROAD panel: the tape lies down as 호평로 ---------- */
+function drawRoad(t, tl) {
+  const g = offR.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0);
+  const hz = lerp(-1400, 430, tl), B = H + 60;
+  g.fillStyle = INK; g.fillRect(0, 0, W, H);
+  const vp = 960;
+  const proj = z => [hz + (B - hz) / z];   // z>=1 at bottom
+  const halfW = z => lerp(1500, 540, tl) / z + lerp(W, 0, tl) * 0;
+  // ground grid
+  g.save(); g.strokeStyle = 'rgba(255,210,63,.28)'; g.lineWidth = 2;
+  const s = 20 + 11.8 * eOut(seg(t, 16.94, 19.25)) + Math.max(0, t - 19.25) * .06;
+  for (let n = Math.floor(s); n < s + 60; n++) { const z = n - s + 1; if (z < 1) continue; const y = proj(z)[0]; g.globalAlpha = clamp(1.4 - z / 30); g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
+  g.globalAlpha = 1;
+  for (let j = -12; j <= 12; j++) { g.beginPath(); g.moveTo(vp + j * 330, B); g.lineTo(vp + j * 330 * 0.02, hz); g.stroke(); }
+  g.restore();
+  // the road = the yellow tape, seen lying flat
+  const zN = 60, top = proj(zN)[0];
+  g.fillStyle = Y; g.beginPath(); g.moveTo(vp - halfW(1), B); g.lineTo(vp + halfW(1), B); g.lineTo(vp + halfW(zN), top); g.lineTo(vp - halfW(zN), top); g.closePath(); g.fill();
+  g.strokeStyle = INK; g.lineWidth = 10; g.beginPath(); g.moveTo(vp - halfW(1) + 6, B); g.lineTo(vp - halfW(zN), top); g.moveTo(vp + halfW(1) - 6, B); g.lineTo(vp + halfW(zN), top); g.stroke();
+  // ticks + numbers on the tape (they count up as we travel; stop at 33)
+  for (let n = Math.floor(s * 5); n < (s + 40) * 5; n++) {
+    const z = n / 5 - s + 1; if (z < 1) continue; const y = proj(z)[0], hw2 = halfW(z), L = (n % 5 === 0 ? .2 : .1) * hw2;
+    g.fillStyle = INK; g.fillRect(vp - hw2, y, L, Math.max(1, 6 / z)); g.fillRect(vp + hw2 - L, y, L, Math.max(1, 6 / z));
+    if (n % 5 === 0) { const num = n / 5; const size = 300 / z; if (size > 6) { g.save(); g.translate(vp, y - size * .18); g.scale(1, .42); g.font = `${size}px ${BH}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillStyle = num === 33 ? CO : INK; g.globalAlpha = clamp(1.6 - z / 14); g.fillText(String(num), 0, 0); g.restore(); } }
+  }
+  if (tl < 1) return offR;
+  // titles
+  const ent = (t0, dy = -100) => { const p = seg(t, t0 - .05, t0 + .5); return [clamp(p * 5), (1 - spring(p)) * dy]; };
+  let [a, dy] = ent(R.title); txt(g, '남양주 호평동', 960, 120 + dy, 120, CR, { a });
+  [a, dy] = ent(R.road, 120); txt(g, '호평로', 360, 300 + dy, 150, CR, { a });
+  if (t > R.n33 - .03) { const p = spring(seg(t, R.n33 - .03, R.n33 + .4)); txt(g, '33', 700, 300 + dy, 150, Y, { sx: lerp(1.7, 1, p), sy: lerp(1.7, 1, p) }); }
+  // building drawn by the cord rising from the road edge
+  const bx = 1380, by = 760, bw = 380, bh = 330;
+  const bpts = [[1240, 900], [bx, by], [bx, by - bh], [bx + bw, by - bh], [bx + bw, by], [bx, by], [bx + 60, by - bh - 60], [bx + bw + 60, by - bh - 60], [bx + bw, by - bh], [bx + bw + 60, by - bh - 60], [bx + bw + 60, by - 60], [bx + bw, by]];
+  const bl = keyLen(t, [[R.emart - .5, 0], [R.emart + .15, plen(bpts).pop()]]);
+  const fillA = seg(t, R.emart, R.emart + .3);
+  if (fillA > 0) { g.globalAlpha = fillA; g.fillStyle = CR; g.fillRect(bx, by - bh, bw, bh); g.fillStyle = '#E3DCCB'; g.beginPath(); g.moveTo(bx, by - bh); g.lineTo(bx + 60, by - bh - 60); g.lineTo(bx + bw + 60, by - bh - 60); g.lineTo(bx + bw, by - bh); g.fill(); g.beginPath(); g.moveTo(bx + bw, by - bh); g.lineTo(bx + bw + 60, by - bh - 60); g.lineTo(bx + bw + 60, by - 60); g.lineTo(bx + bw, by); g.fill();
+    g.fillStyle = 'rgba(20,19,17,.15)'; for (let i = 0; i < 5; i++) for (let j = 0; j < 3; j++) g.fillRect(bx + 30 + i * 68, by - bh + 130 + j * 62, 40, 36);
+    g.globalAlpha = 1; txt(g, '이마트', bx + bw / 2, by - bh + 70, 80, INK, { a: fillA }); }
+  cord(g, bpts, bl, 14);
+  if (t > R.pin - .25) { const pd = seg(t, R.pin - .25, R.pin), pb = seg(t, R.pin, R.pin + .4); pinShape(g, bx + bw / 2, by - bh - 230 + (1 - eIn(pd)) * -700 - Math.sin(pb * Math.PI) * 30 * (1 - pb), 1.1 * (1 + sbeat(t) * .05), 1); }
+  const q = seg(t, R.pin, R.pin + .7); if (q > 0 && q < 1) { g.strokeStyle = Y; g.globalAlpha = 1 - q; g.lineWidth = 8; g.beginPath(); g.arc(bx + bw / 2, by - bh / 2, 120 + q * 500, 0, 7); g.stroke(); g.globalAlpha = 1; }
+  if (t > R.geu - .05) { const p = spring(seg(t, R.geu - .05, R.geu + .45)); txt(g, '그 건물!', 1600, 905, 140, Y, { sx: lerp(1.8, 1, p), sy: lerp(1.8, 1, p), rot: -.07 }); }
+  return offR;
+}
+
+/* ---------- WORLDS & CAMERA ---------- */
+// W1: tape strip (y -540..540) with hook1 @x0, hook2 @x2400; verse panel at (2400, 2000) on cream paper
+// W2: tape strip with road picture @x0, hook4 @x2400; tape case at x -1700
+const STRIP_START1 = -1150, CASE_X = -1700;
+function camKeys(t, keys) { // keys: [time, x, y, z]; zoom interpolated in log space
+  if (t <= keys[0][0]) return keys[0].slice(1);
+  for (let i = 1; i < keys.length; i++) if (t < keys[i][0]) { const k = eInOut(seg(t, keys[i - 1][0], keys[i][0])), a = keys[i - 1], b = keys[i];
+    return [lerp(a[1], b[1], k), lerp(a[2], b[2], k), Math.exp(lerp(Math.log(a[3]), Math.log(b[3]), k))]; }
+  return keys[keys.length - 1].slice(1);
+}
+const CAM1 = [[0, 0, 0, 1], [3.05, 0, 0, 1], [3.38, 1200, 0, .38], [3.72, 2400, 0, 1], [6.6, 2400, 0, 1], [6.93, 2400, 1000, .36], [7.27, 2400, 2000, 1], [12.4, 2400, 2000, 1.04]];
+const CAM2 = [[21.75, 0, 0, 1], [22.08, 1200, 0, .38], [22.45, 2400, 0, 1], [26.36, 2400, 0, 1], [26.9, 350, 0, .3], [27.6, 350, 0, .3], [28.15, CASE_X + 120, 80, .62]];
+function setCam(x, y, z, extra) { const [bx, by, bz] = extra; ctx.setTransform(z * bz, 0, 0, z * bz, 960 - x * z * bz + bx, 540 - y * z * bz + by); }
+function strip(t, x0, x1) {   // the big tape
+  ctx.fillStyle = Y; ctx.fillRect(x0, -540, x1 - x0, 1080);
+  rulerEdges(ctx, x0, x1, -540, 540, 0);
+  ctx.fillStyle = INK; ctx.fillRect(x0, -548, x1 - x0, 8); ctx.fillRect(x0, 540, x1 - x0, 8);
+}
+function connector(pts, len) { ctx.save(); cord(ctx, pts, len, 16); ctx.restore(); }
+function drawW1(t, extra) {
+  const [x, y, z] = camKeys(t, CAM1);
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = CR; ctx.fillRect(0, 0, W, H);
+  setCam(x, y, z, extra);
+  // tape start tab
+  strip(t, STRIP_START1, 9000);
+  ctx.fillStyle = '#B9B2A8'; ctx.strokeStyle = INK; ctx.lineWidth = 10; rrect(ctx, STRIP_START1 - 120, -600, 130, 1200, 30); ctx.fill(); ctx.stroke();
+  if (t < 7.4) { ctx.drawImage(drawHook(0, t, false), -960, -540); ctx.drawImage(drawHook(1, t, false), 2400 - 960, -540); }
+  // cord connectors between panels (world space) — the cord never breaks
+  connector([[960, 295], [1150, 295], [1300, -100], [1440, -400]], keyLen(t, [[3.0, 0], [3.4, 1000]]));
+  if (t > 6.5) connector([[2400 + 960, 295], [3500, 600], [3200, 1200], [2860, 1460]], keyLen(t, [[6.55, 0], [7.05, 1600]]));
+  if (t > 6.6) { const v = drawVerse(t); drawVerse.last = v; ctx.drawImage(offV, 2400 - 960, 2000 - 540); }
+  return [x, y, z];
+}
+function drawW2(t, extra) {
+  const [x, y, z] = camKeys(t, CAM2);
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = CR; ctx.fillRect(0, 0, W, H);
+  setCam(x, y, z, extra);
+  const rt = eIn(seg(t, 26.95, 27.45));           // retract: everything slides into the case
+  const shift = -rt * 4720;
+  const caseR = CASE_X + 640;                     // tape exits the case here
+  ctx.save(); ctx.beginPath(); ctx.rect(caseR, -700, 20000, 1400); ctx.clip();
+  ctx.translate(shift, 0);
+  strip(t, caseR - shift, 3560);
+  ctx.fillStyle = '#B9B2A8'; ctx.strokeStyle = INK; ctx.lineWidth = 10; rrect(ctx, 3540, -600, 130, 1200, 30); ctx.fill(); ctx.stroke();
+  ctx.drawImage(drawRoad(t, 1), -960, -540);
+  ctx.fillStyle = INK; ctx.fillRect(-968, -548, 8, 1096); ctx.fillRect(960, -548, 8, 1096);
+  ctx.drawImage(drawHook(3, t, false), 2400 - 960, -540);
+  ctx.restore();
+  // the case
+  const bump = 1 + .06 * Math.sin(seg(t, 27.45, 27.75) * Math.PI);
+  ctx.save(); ctx.translate(CASE_X, 0); ctx.scale(bump, bump);
+  ctx.fillStyle = 'rgba(20,19,17,.25)'; rrect(ctx, -640, -640 + 30, 1280, 1280, 240); ctx.fill();
+  ctx.fillStyle = INK; rrect(ctx, -640, -640, 1280, 1280, 240); ctx.fill();
+  ctx.strokeStyle = Y; ctx.lineWidth = 22; ctx.beginPath(); ctx.arc(0, 0, 520, 0, 7); ctx.stroke();
+  ctx.fillStyle = Y; ctx.fillRect(560, -560, 80, 1120);   // tape slot
+  const fp = spring(seg(t, 27.5, 28.0));
+  txt(ctx, '호평동 · 다이어트', 0, -230, 90, Y, { a: fp, weight: '' });
+  txt(ctx, '다산', 0, -30, 260, CR, { a: fp, sx: lerp(1.4, 1, fp), sy: lerp(1.4, 1, fp) });
+  txt(ctx, '한의원', 0, 210, 200, CR, { a: fp, sx: lerp(1.4, 1, fp), sy: lerp(1.4, 1, fp) });
+  ctx.restore();
+  return [x, y, z];
+}
+
+/* ---------- main ---------- */
+window.render = function (t) {
+  const h = hitAmt(t);
+  const extra = [Math.sin(t * .5) * 8, Math.cos(t * .37) * 6 - h * 8, 1.015 + Math.sin(t * .6) * .01 + h * .03];
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1;
+  const screenPost = img => { ctx.setTransform(extra[2], 0, 0, extra[2], 960 - 960 * extra[2] + extra[0], 540 - 540 * extra[2] + extra[1]); ctx.drawImage(img, 0, 0); };
+  if (t < 12.55) drawW1(t, extra);
+  else if (t < 13.12) {
+    // dive into the smile's eye; hook 3 is already inside it
+    const u = seg(t, 12.55, 13.12), zEnd = 62;
+    drawVerse.last = drawVerse(t);
+    const [ex, ey] = eyePos(t); const E = [2400 - 960 + ex, 2000 - 540 + ey];
+    const z = Math.exp(Math.log(1.04) + (Math.log(zEnd) - Math.log(1.04)) * eIn(u) );
+    const cx = lerp(2400, E[0], clamp(eOut(u) * 1.1)), cy = lerp(2000, E[1], clamp(eOut(u) * 1.1));
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = CR; ctx.fillRect(0, 0, W, H);
+    setCam(cx, cy, z, extra); ctx.drawImage(offV, 2400 - 960, 2000 - 540);
+    const sx = (E[0] - cx) * z * extra[2] + 960 + extra[0], sy = (E[1] - cy) * z * extra[2] + 540 + extra[1];
+    const rS = 24 * z * extra[2];
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(sx, sy, rS, 0, 7); ctx.fill();   // crisp eye
+    const rI = rS * .84;
+    if (rI > 6) { const tex = drawHook(2, t, true); ctx.save(); ctx.beginPath(); ctx.arc(sx, sy, rI, 0, 7); ctx.clip();
+      ctx.globalAlpha = clamp((rI - 6) / 50); ctx.fillStyle = Y; ctx.fillRect(sx - rI, sy - rI, rI * 2, rI * 2);
+      const s = rI / (.84 * 24 * zEnd * extra[2]) * extra[2]; ctx.drawImage(tex, sx - 960 * s, sy - 540 * s, W * s, H * s); ctx.restore(); }
+  }
+  else if (t < 16.94) screenPost(drawHook(2, t, true));
+  else if (t < 21.75) {
+    const tl = eInOut(seg(t, 16.94, 17.5));
+    const road = drawRoad(t, tl);
+    if (tl < 1) { const g = road.getContext('2d'); const hk = drawHook(2, t, false); const hz = lerp(-1400, 430, tl), s = 1 - tl;
+      g.globalAlpha = Math.pow(1 - tl, .6); g.drawImage(hk, 960 - 960 * s, lerp(0, hz, tl) - 0, W * s, H * s); g.globalAlpha = 1;
+      if (tl < .6) rulerEdges(g, 0, W, 0, H, t * 60, `rgba(20,19,17,${.6 * (1 - tl / .6)})`); }
+    screenPost(road);
+  }
+  else drawW2(t, extra);
+  // closing info (screen space)
+  const ip = seg(t, 27.7, 28.2);
+  if (ip > 0) { ctx.setTransform(1, 0, 0, 1, 0, 0); const y = 975 + (1 - spring(ip)) * 120;
+    ctx.globalAlpha = clamp(ip * 4); ctx.fillStyle = INK; rrect(ctx, 960 - 560, y - 42, 1120, 84, 42); ctx.fill();
+    txt(ctx, '남양주 호평동 · 호평로 33 · 031-559-8101', 960, y, 44, CR, { font: 'P', weight: 800 }); ctx.globalAlpha = 1; }
+};
+window.fitAll = async function () {
+  const u = '호평동다이어트다산한의원뱃살은쭉체질맞춰쏙몸은가볍게마음은즐겁게남양주호평로이마트그건물·0123456789!-';
+  document.getElementById('pre').innerHTML = `<div style="font-family:'Black Han Sans'">${u}</div><div style="font-family:P;font-weight:800">${u}</div><div style="font-family:P;font-weight:900">${u}</div>`;
+  await document.fonts.ready; await document.fonts.load(`100px ${BH}`, u); await document.fonts.load(`800 40px P`, u);
+  await new Promise(r => setTimeout(r, 300)); window.render(0);
+};
+</script>
+</body>
+</html>
