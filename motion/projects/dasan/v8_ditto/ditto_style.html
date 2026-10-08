@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<style>
+  @font-face { font-family: P; font-weight: 300; src: url(fonts/Pretendard-Light.otf); }
+  @font-face { font-family: P; font-weight: 700; src: url(fonts/Pretendard-Bold.woff2); }
+  @font-face { font-family: P; font-weight: 800; src: url(fonts/Pretendard-ExtraBold.woff2); }
+  @font-face { font-family: P; font-weight: 900; src: url(fonts/Pretendard-Black.woff2); }
+  * { margin: 0; padding: 0; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: #0C0C0E; }
+  #pre { position: absolute; left: -9999px; }
+</style>
+</head>
+<body>
+<canvas id="cv" width="1920" height="1080"></canvas>
+<div id="pre"></div>
+<script>
+/* ref ㉔ "Ditto" grammar: near-black, white type, one lavender→pink gradient accent, wide negative space.
+   Section template ①line card ②gradient card ③card reel + split lyric ④word-by-word lockup. */
+const W = 1920, H = 1080, BG = '#0C0C0E', WH = '#FFFFFF', LAV = '#8B7CFF', PNK = '#FFB8CB';
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const grad = (x0, y0, x1, y1) => { const g = ctx.createLinearGradient(x0, y0, x1, y1); g.addColorStop(0, LAV); g.addColorStop(1, PNK); return g; };
+function bg() { ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H); }
+function T(s, x, y, size, o = {}) {
+  ctx.save(); ctx.translate(x, y); if (o.rot) ctx.rotate(o.rot);
+  ctx.font = `${o.w || 800} ${size}px P`; ctx.textAlign = o.al || 'left'; ctx.textBaseline = 'alphabetic'; ctx.letterSpacing = (o.ls ?? 2) + 'px';
+  ctx.globalAlpha = o.a ?? 1; ctx.fillStyle = o.c || WH; ctx.fillText(s, 0, 0); ctx.restore();
+}
+function sparkle(x, y, r, rot = 0, a = 1) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.globalAlpha = a; ctx.fillStyle = grad(-r, -r, r, r);
+  ctx.beginPath(); ctx.moveTo(0, -r); ctx.quadraticCurveTo(r * .12, -r * .12, r, 0); ctx.quadraticCurveTo(r * .12, r * .12, 0, r);
+  ctx.quadraticCurveTo(-r * .12, r * .12, -r, 0); ctx.quadraticCurveTo(-r * .12, -r * .12, 0, -r); ctx.fill(); ctx.restore();
+}
+function comet(pts, w = 3) { ctx.save(); ctx.strokeStyle = grad(pts[0][0], pts[0][1], pts[3][0], pts[3][1]); ctx.lineWidth = w; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(...pts[0]); ctx.bezierCurveTo(...pts[1], ...pts[2], ...pts[3]); ctx.stroke(); ctx.restore(); }
+function smallTag(s, x, y) { T(s, x, y, 22, { w: 700, c: 'rgba(255,255,255,.75)', ls: 1 }); }
+
+const FR = {
+  // ① a thin card draws itself; an orbit icon; the first hook line
+  card() {
+    bg();
+    const x = 760, y = 250, w = 400, h = 560;
+    ctx.strokeStyle = grad(x, y, x + w, y + h); ctx.lineWidth = 3; ctx.beginPath(); ctx.roundRect(x, y, w, h, 10); ctx.stroke();
+    // orbit icon: ring + crescent "waist" + orbiting beads
+    const cx = 960, cy = 420;
+    ctx.strokeStyle = 'rgba(255,184,203,.8)'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.ellipse(cx, cy, 100, 82, -.15, 0, 7); ctx.stroke();
+    ctx.fillStyle = grad(cx - 50, cy - 50, cx + 50, cy + 50); ctx.beginPath(); ctx.arc(cx, cy, 52, 0, 7); ctx.fill();
+    ctx.fillStyle = BG; ctx.beginPath(); ctx.arc(cx + 20, cy - 12, 46, 0, 7); ctx.fill();
+    [[cx - 98, cy + 10, 9, 'stroke'], [cx + 70, cy - 58, 7, 'fill'], [cx + 18, cy + 82, 10, 'fill']].forEach(([a, b, r, m]) => {
+      ctx.beginPath(); ctx.arc(a, b, r, 0, 7); if (m === 'fill') { ctx.fillStyle = PNK; ctx.fill(); } else { ctx.strokeStyle = WH; ctx.lineWidth = 2.5; ctx.stroke(); } });
+    T('남양주', 960, 640, 54, { al: 'center' });
+    T('호평동', 960, 712, 54, { al: 'center' });
+    comet([[560, 700], [520, 900], [1300, 760], [1420, 360]], 2.5);
+    ctx.strokeStyle = WH; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(700, 880, 8, 0, 7); ctx.stroke();
+    smallTag('다산한의원 · 다이어트 징글', 120, 120);
+  },
+  // ② gradient card with the hook word
+  gcard() {
+    bg();
+    const x = 740, y = 250, w = 440, h = 520;
+    ctx.save(); ctx.shadowColor = 'rgba(139,124,255,.45)'; ctx.shadowBlur = 80;
+    const g = ctx.createLinearGradient(x, y + h, x + w, y); g.addColorStop(0, LAV); g.addColorStop(.55, '#B79CF5'); g.addColorStop(1, PNK);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.roundRect(x, y, w, h, 8); ctx.fill(); ctx.restore();
+    T('다이', x + 46, y + h - 190, 130, { w: 900, ls: 0 });
+    T('어트', x + 46, y + h - 50, 130, { w: 900, ls: 0 });
+    sparkle(x + w - 60, y + h - 70, 30);
+    sparkle(1420, 300, 26, .3, .9); sparkle(500, 760, 20, -.2, .7);
+    smallTag('호평동 다이어트', 120, 120);
+  },
+  // ③ a reel of cards slides down the middle; one word on the left, the line builds on the right
+  reel() {
+    bg();
+    const cx = 700, cw = 300, ch = 400;
+    [[-330, '쭉', 0], [100, '쏙', -2.5], [530, '쭉', 1.5]].forEach(([y, s, r], i) => {
+      ctx.save(); ctx.translate(cx, y + ch / 2); ctx.rotate(r * Math.PI / 180);
+      ctx.fillStyle = '#F4F4F6'; ctx.beginPath(); ctx.roundRect(-cw / 2, -ch / 2, cw, ch, 14); ctx.fill();
+      ctx.fillStyle = grad(-60, -60, 60, 60); ctx.font = '900 150px P'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(s, 0, 10);
+      ctx.font = '800 40px P'; ctx.fillStyle = i === 1 ? PNK : LAV; ctx.textAlign = 'left'; ctx.fillText('✦', -cw / 2 + 22, -ch / 2 + 54);
+      ctx.save(); ctx.rotate(Math.PI); ctx.fillText('✦', -cw / 2 + 22, -ch / 2 + 54); ctx.restore();
+      ctx.restore();
+    });
+    T('뱃살은', 250, 420, 76, { al: 'left' });
+    T('쭉', 980, 360, 96, { w: 900, c: grad(980, 290, 1100, 370) });
+    T('체질 맞춰', 980, 470, 76);
+    T('쏙', 980, 580, 96, { w: 900, c: grad(980, 510, 1100, 590) });
+    smallTag('내 몸에 맞게', 980, 650);
+    sparkle(1500, 300, 24, .4, .9);
+  },
+  // ④ the hook lockup builds word by word, sparkles drift, a comet line swipes through
+  lockup() {
+    bg();
+    T('남양주', 760, 400, 56);
+    T('호평동', 960, 400, 56);
+    T('다이어트', 760, 492, 84, { w: 900, c: grad(760, 420, 1100, 500) });
+    T('다산', 760, 600, 104, { w: 900, ls: 0 });
+    T('한의원', 990, 600, 104, { w: 900, ls: 0 });
+    T('031-559-8101', 764, 660, 26, { w: 700, c: 'rgba(255,255,255,.7)' });
+    comet([[1180, 720], [1460, 690], [1500, 470], [1330, 430]], 2.5);
+    sparkle(620, 300, 30, .2); sparkle(1360, 330, 24, -.3, .9); sparkle(640, 760, 36, .5);
+    ctx.save(); ctx.translate(600, 380); ctx.rotate(-.5); ctx.fillStyle = grad(-22, -14, 22, 14); ctx.fillRect(-22, -14, 44, 28); ctx.restore();
+  },
+};
+const ORDER = ['card', 'gcard', 'reel', 'lockup'];
+window.render = t => { ctx.clearRect(0, 0, W, H); FR[ORDER[Math.round(t)]](); };
+window.fitAll = async () => {
+  const s = '남양주호평동다산한의원다이어트징글뱃살은쭉체질맞춰쏙내몸에맞게031-559-8101·✦';
+  await Promise.all(['300 80px P', '700 80px P', '800 80px P', '900 80px P'].map(f => document.fonts.load(f, s)));
+  await document.fonts.ready; await new Promise(r => setTimeout(r, 300));
+};
+</script>
+</body>
+</html>
