@@ -1,0 +1,634 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="fonts/black-han-sans/400.css">
+<style>
+  @font-face { font-family: P; font-weight: 700; src: url(fonts/Pretendard-Bold.woff2); }
+  @font-face { font-family: P; font-weight: 800; src: url(fonts/Pretendard-ExtraBold.woff2); }
+  @font-face { font-family: P; font-weight: 900; src: url(fonts/Pretendard-Black.woff2); }
+  /* ONE THEME — "꿀 한 방울": dark honey / cream / honey, one accent, two fonts, honeycomb, dripping motion */
+  :root { --dk: #17110A; --cr: #F6EEDD; --hn: #FFB81C; --am: #E8890C; --br: #2A1D0E; --ac: #FF5A1F; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--dk); font-family: P, sans-serif; }
+  #bg { position: absolute; inset: 0; }
+  #cam { position: absolute; inset: 0; }
+  #layer, .sec { position: absolute; inset: 0; }
+  .abs { position: absolute; transform-origin: 50% 80%; }
+  .c { left: 0; right: 0; text-align: center; }
+  .bhs { font-family: 'Black Han Sans', sans-serif; line-height: 1; white-space: nowrap; letter-spacing: -2px; }
+  .wd { display: inline-block; transform-origin: 50% 85%; }
+  .dot { display: inline-block; width: .2em; height: .2em; border-radius: 50%; background: var(--dot, #FFB81C); margin-left: .06em; }
+  .lab { font-family: 'Black Han Sans', sans-serif; font-size: 84px; line-height: 1; white-space: nowrap; letter-spacing: -1px; }
+  .sm { font-weight: 700; font-size: 26px; letter-spacing: 4px; white-space: nowrap; }
+  #brand { position: absolute; left: 100px; top: 40px; display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 22px; letter-spacing: 3px; }
+  #lyr { position: absolute; left: 0; right: 0; bottom: 60px; text-align: center; }
+  #lyr .box { position: relative; display: inline-block; padding: 12px 36px 14px; border-radius: 999px; background: rgba(23,17,10,.82); }
+  #lyr .t { font-weight: 800; font-size: 40px; letter-spacing: -.5px; white-space: nowrap; color: rgba(246,238,221,.5); }
+  #lyr .h { position: absolute; left: 36px; top: 12px; font-weight: 800; font-size: 40px; letter-spacing: -.5px; white-space: nowrap; color: var(--hn); }
+  #pre { position: absolute; left: -9999px; top: 0; }
+</style>
+</head>
+<body>
+<canvas id="bg" width="1920" height="1080"></canvas>
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <radialGradient id="hg" cx=".38" cy=".62" r=".7"><stop offset="0" stop-color="#FFF2C4"/><stop offset=".3" stop-color="#FFC93C"/><stop offset=".75" stop-color="#F29A0A"/><stop offset="1" stop-color="#B85C00"/></radialGradient>
+    <symbol id="drop" viewBox="0 0 100 130"><path d="M50 4 C58 30 92 58 92 86 A42 42 0 0 1 8 86 C8 58 42 30 50 4 Z" fill="url(#hg)"/><ellipse cx="34" cy="88" rx="9" ry="16" fill="#FFF8DF" opacity=".8" transform="rotate(22 34 88)"/></symbol>
+    <symbol id="bee" viewBox="0 0 200 170">
+      <ellipse cx="78" cy="40" rx="44" ry="30" fill="#F6EEDD" stroke="#2A1D0E" stroke-width="6" transform="rotate(-20 78 40)"/>
+      <ellipse cx="124" cy="38" rx="40" ry="28" fill="#F6EEDD" stroke="#2A1D0E" stroke-width="6" transform="rotate(18 124 38)"/>
+      <ellipse cx="100" cy="102" rx="72" ry="54" fill="#FFB81C" stroke="#2A1D0E" stroke-width="6"/>
+      <path d="M70 54 Q58 102 70 152" stroke="#2A1D0E" stroke-width="18" fill="none"/>
+      <path d="M108 50 Q96 102 108 154" stroke="#2A1D0E" stroke-width="18" fill="none"/>
+      <circle cx="162" cy="92" r="30" fill="#2A1D0E"/><circle cx="172" cy="84" r="8" fill="#fff"/>
+    </symbol>
+    <symbol id="syr" viewBox="0 0 460 60">
+      <line x1="0" y1="30" x2="110" y2="30" stroke="#D8CBB5" stroke-width="5" stroke-linecap="round"/>
+      <rect x="110" y="20" width="24" height="20" rx="3" fill="#CDBFA8"/>
+      <rect x="134" y="8" width="210" height="44" rx="8" fill="#F6EEDD" stroke="#2A1D0E" stroke-width="5"/>
+      <rect x="140" y="15" width="120" height="30" rx="4" fill="#FFB81C"/>
+      <rect x="344" y="24" width="80" height="12" fill="#CDBFA8"/>
+      <rect x="424" y="27" width="14" height="6" rx="2" fill="#CDBFA8"/>
+    </symbol>
+    <symbol id="momdoc" viewBox="60 150 600 460">
+      <g transform="translate(250 600) scale(0.8) translate(-250 -600)">
+        <circle cx="250" cy="300" r="70" fill="#E3B18E"/>
+        <path d="M180 290 Q185 215 250 212 Q318 215 322 290 Q300 250 250 248 Q200 250 180 290 Z" fill="#B9B2A8"/>
+        <circle cx="250" cy="215" r="32" fill="#B9B2A8"/>
+        <path d="M150 600 Q150 400 250 390 Q350 400 350 600 Z" fill="#E8890C"/>
+      </g>
+      <g transform="translate(490 600) scale(1.08) translate(-490 -600)">
+        <circle cx="490" cy="330" r="64" fill="#D9A07A"/>
+        <path d="M428 318 Q432 258 490 254 Q548 258 552 318 Q535 288 490 286 Q445 288 428 318 Z" fill="#2A1D0E"/>
+        <path d="M395 600 Q395 420 490 410 Q585 420 585 600 Z" fill="#FFFFFF"/>
+        <path d="M490 412 L470 470 L490 600 L510 470 Z" fill="#FFB81C"/>
+      </g>
+    </symbol>
+  </defs>
+</svg>
+<div id="cam"><div id="layer"></div></div>
+<div id="brand"><svg width="18" height="24"><use href="#drop" width="18" height="24"/></svg><span>일로한방병원 · 봉침</span></div>
+<div id="lyr"></div>
+<div id="pre"></div>
+
+<script src="beats.js"></script>
+<script>
+/* ================= utilities ================= */
+const $ = id => document.getElementById(id);
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, k) => a + (b - a) * k;
+const eOut = x => 1 - Math.pow(1 - x, 3);
+const eIn = x => x * x * x;
+const eInOut = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+// soft damped spring: overshoots ~8% once, then settles (no dead stop)
+const spring = p => p <= 0 ? 0 : p >= 1 ? 1 : 1 - Math.exp(-6.5 * p) * Math.cos(8.5 * p);
+function hash(n) { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); }
+const HN = '#FFB81C', AM = '#E8890C', BR = '#2A1D0E', CR = '#F6EEDD', DK = '#17110A', AC = '#FF5A1F';
+const W = 1920, H = 1080;
+
+/* ================= beat clock ================= */
+const PERIOD = 0.4644;
+const B = window.BEATS.slice();
+while (B[B.length - 1] < 84) B.push(+(B[B.length - 1] + PERIOD).toFixed(3));
+function beatIdx(t) { let i = -1; for (let k = 0; k < B.length; k++) { if (B[k] <= t) i = k; else break; } return i; }
+function pulse(t, k = 7) { const i = beatIdx(t); return i < 0 ? 0 : Math.exp(-(t - B[i]) * k); }
+// smooth beat (no instant jump): quick rise, slow fall
+function sbeat(t) { const i = beatIdx(t); if (i < 0) return 0; const d = t - B[i]; return d < .05 ? eOut(d / .05) : Math.exp(-(d - .05) * 6); }
+
+/* ================= lyrics (ElevenLabs Scribe word timings) ================= */
+const LINES = [
+  { s: 1.72, w: [['여러분!', 1.72, 2.10]] },
+  { s: 3.44, w: [['여기', 3.44, 3.58], ['좀', 3.70, 3.72], ['봐요!', 3.82, 4.36]] },
+  { s: 8.00, w: [['무릎이', 8.00, 8.38], ['시큰,', 8.46, 8.64], ['계단', 8.74, 8.92], ['앞에서', 9.12, 9.34], ['멈칫', 9.52, 9.78]] },
+  { s: 9.94, w: [['어깨가', 9.94, 10.28], ['뻐근,', 10.38, 10.52], ['팔이', 10.68, 10.78], ['안', 10.88, 10.90], ['올라가', 10.96, 11.20], ['찌릿', 11.36, 11.64]] },
+  { s: 11.76, w: [['아침마다', 11.76, 12.14], ['허리', 12.26, 12.40], ['뻣뻣,', 12.54, 12.84], ['한숨이', 12.94, 13.10], ['푹', 13.22, 13.52]] },
+  { s: 13.66, w: [['이제는', 13.66, 14.00], ['참지', 14.14, 14.26], ['마요,', 14.34, 14.46], ['방법이', 14.68, 14.98], ['있죠', 15.18, 15.44]] },
+  { s: 22.38, w: [['쑤실', 22.38, 22.68], ['땐', 22.88, 22.92], ['봉침,', 23.28, 23.86], ['아플', 24.20, 24.56], ['땐', 24.74, 24.80], ['봉침', 25.14, 25.74]] },
+  { s: 26.20, w: [['무릎', 26.20, 26.42], ['어깨', 26.58, 26.90], ['허리엔', 27.14, 27.62], ['봉침부터', 27.78, 28.56]] },
+  { s: 28.98, w: [['진료', 28.98, 29.26], ['때', 29.42, 29.48], ['한마디,', 29.70, 30.20], ['봉침', 30.36, 30.66], ['놔', 30.86, 31.10], ['주세요', 31.10, 31.60]] },
+  { s: 31.80, w: [['일로한방병원,', 31.80, 33.48], ['봉침부터', 33.66, 34.66]] },
+  { s: 35.76, w: [['꿀벌', 35.76, 36.06], ['봉독', 36.24, 36.40], ['깨끗하게', 36.50, 37.00], ['정제해서', 37.20, 38.16]] },
+  { s: 39.54, w: [['가는', 39.54, 39.78], ['주사로', 39.94, 40.26], ['아픈', 40.42, 40.74], ['관절에', 40.96, 41.40], ['쏙!', 41.84, 42.10]] },
+  { s: 43.00, w: [['논문으로', 43.00, 43.54], ['확인,', 43.86, 44.72], ['통증은', 44.92, 45.44], ['다운', 45.60, 45.90]] },
+  { s: 47.06, w: [['진료지침에도', 47.06, 48.22], ['권고,', 48.62, 49.16], ['딱!', 49.38, 49.60]] },
+  { s: 50.82, w: [['우리', 50.82, 51.08], ['엄마', 51.70, 51.92], ['쑤실', 52.38, 52.46], ['때도', 52.68, 53.38], ['봉침', 53.54, 53.86], ['놔', 54.08, 54.40], ['드려요', 54.40, 55.12]] },
+  { s: 56.18, w: [['피부반응검사', 56.18, 58.08], ['먼저,', 58.30, 58.80], ['안심하세요', 59.68, 60.92]] },
+  { s: 63.64, w: [['쑤실', 63.64, 63.94], ['땐', 64.12, 64.18], ['봉침,', 64.52, 65.12], ['아플', 65.48, 65.80], ['땐', 66.00, 66.06], ['봉침', 66.40, 67.00]] },
+  { s: 67.44, w: [['무릎', 67.44, 67.66], ['어깨', 67.94, 68.14], ['허리엔', 68.76, 68.86], ['봉침부터', 69.02, 70.00]] },
+  { s: 70.26, w: [['진료', 70.26, 70.50], ['때', 70.66, 70.72], ['한마디,', 70.94, 71.44], ['봉침', 71.60, 71.90], ['놔', 72.10, 72.40], ['주세요', 72.40, 72.86]] },
+  { s: 73.06, w: [['일로한방병원,', 73.06, 74.24], ['봉침부터', 74.90, 75.74]] },
+  { s: 78.66, w: [['봉침부터!', 78.66, 79.20]] },
+];
+LINES.forEach(l => l.e = l.w[l.w.length - 1][2]);
+
+const HITS = [1.72, 3.82, 8.46, 11.36, 13.22, 22.38, 23.28, 25.14, 27.78, 31.30, 33.66, 41.84, 48.62, 49.38, 59.68, 63.64, 64.52, 66.40, 69.02, 72.55, 74.90, 78.66];
+function hitAmt(t) { let a = 0; for (const h of HITS) { const d = t - h; if (d < 0 || d > 1) continue; a = Math.max(a, d < .07 ? eOut(d / .07) : Math.exp(-(d - .07) * 6)); } return a; }
+// honey ripples through the comb: [time, x, y, strength]
+const RIPS = [...HITS.map(h => [h, 960, 560, 1])];
+B.filter((b, i) => i % 2 === 1 && b > 16 && b < 22.2).forEach(b => RIPS.push([b, 960, 500, .7]));
+RIPS.push([41.84, 1340, 560, 1.2]); RIPS.push([1.70, 960, 540, 1.2]);
+
+/* ================= sections ================= */
+const S = [['intro', 0, 7.85], ['v1', 7.85, 15.6], ['build', 15.6, 22.3], ['ch1', 22.3, 35.5], ['v2', 35.5, 50.6], ['br', 50.6, 61.3], ['build2', 61.3, 63.55], ['ch2', 63.55, 76.0], ['out', 76.0, 82.0]];
+const secIdx = t => { for (let i = S.length - 1; i >= 0; i--) if (t >= S[i][1]) return i; return 0; };
+
+/* ================= background: one honey world ================= */
+const BGC = { dark: DK, cream: CR, honey: HN };
+const ADC = { dark: CR, cream: BR, honey: BR };
+const lw = (o, k) => LINES[o].w[k][1];
+// background changes = honey-drop wipes (never hard cuts). [time, mode, x, y, duration]
+const BGT = [[0, 'dark'], [3.80, 'cream', 960, 560, .42], [9.88, 'dark', 960, 560, .4], [11.70, 'cream', 960, 560, .4], [13.60, 'dark', 960, 560, .4]];
+function chorusBG(o) {
+  BGT.push([lw(o, 2) - .13, 'honey', 960, 640, .26, 1], [lw(o, 3) - .1, 'dark', 960, 640, .3, 1], [lw(o, 5) - .13, 'honey', 960, 640, .26, 1],
+    [lw(o + 1, 3) - .13, 'dark', 960, 600, .28, 1], [LINES[o + 2].s - .1, 'cream', 960, 560, .42], [LINES[o + 3].s - .1, 'dark', 960, 420, .45]);
+}
+chorusBG(6);
+BGT.push([42.74, 'cream', 960, 560, .45], [46.74, 'dark', 960, 560, .45], [49.38 - .13, 'honey', 960, 600, .26, 1], [50.5, 'cream', 960, 560, .55], [55.7, 'dark', 1280, 560, .55], [61.22, 'honey', 960, 540, .4], [63.48, 'dark', 960, 540, .42]);
+chorusBG(16);
+BGT.sort((a, b) => a[0] - b[0]);
+function bgState(t) { let i = 0; for (let k = 0; k < BGT.length; k++) if (BGT[k][0] <= t) i = k; const b = BGT[i]; const q = seg(t, b[0], b[0] + b[4]), p = i === 0 ? 1 : b[5] ? eOut(q) : eInOut(q); return { from: i ? BGT[i - 1][1] : b[1], to: b[1], x: b[2], y: b[3], r: p * 2400, p }; }
+function bgModeAt(t, x, y) { const s = bgState(t); return s.p >= 1 || Math.hypot(x - s.x, y - s.y) < s.r ? s.to : s.from; }
+
+const cv = $('bg'), ctx = cv.getContext('2d');
+function fill(c) { ctx.fillStyle = c; ctx.fillRect(0, 0, W, H); }
+function glow(x, y, r, col) { const g = ctx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, col); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2); }
+const HEX = 62, HW = Math.sqrt(3) * HEX, HH = 1.5 * HEX;
+const HV = [...Array(6)].map((_, i) => { const a = (60 * i - 30) * Math.PI / 180; return [Math.cos(a), Math.sin(a)]; });
+const HEXC = { dark: 'rgba(255,184,28,.08)', cream: 'rgba(160,100,20,.12)', honey: 'rgba(42,29,14,.10)' };
+const LITC = { dark: '255,184,28', cream: '255,184,28', honey: '255,248,225' };
+const GLC = { dark: 'rgba(255,160,30,.13)', cream: 'rgba(255,196,70,.28)', honey: 'rgba(255,246,215,.38)' };
+let ZOOM = { k: 1, x: 960, y: 540 };
+function hexPath(x, y, r) { ctx.moveTo(x + HV[0][0] * r, y + HV[0][1] * r); for (let i = 1; i < 6; i++) ctx.lineTo(x + HV[i][0] * r, y + HV[i][1] * r); ctx.closePath(); }
+function paintBase(mode, t) {
+  fill(BGC[mode]);
+  glow(W / 2 + Math.cos(t * .21) * 560, H / 2 + Math.sin(t * .17) * 260, 900, GLC[mode]);
+  glow(W / 2 + Math.cos(t * .16 + 2.5) * 620, H / 2 + Math.sin(t * .23 + 1.2) * 300, 700, GLC[mode]);
+  ctx.save();
+  if (ZOOM.k !== 1) { ctx.translate(ZOOM.x, ZOOM.y); ctx.scale(ZOOM.k, ZOOM.k); ctx.translate(-ZOOM.x, -ZOOM.y); }
+  const ox = (t * 16) % HW, oy = (t * 9) % (HH * 2), sr = Math.floor(t * 9 / (HH * 2)) * 2, sc = Math.floor(t * 16 / HW);
+  const act = RIPS.filter(r => t - r[0] >= 0 && t - r[0] < 1.5);
+  const bi = beatIdx(t), pb = sbeat(t);
+  const lit = [];
+  ctx.beginPath();
+  for (let r = -3; r * HH < H + HH * 3; r++) for (let c = -2; c * HW < W + HW * 2; c++) {
+    const x = c * HW + (r & 1 ? HW / 2 : 0) + ox - HW, y = r * HH + oy - HH * 2;
+    hexPath(x, y, HEX * .93);
+    const R = r - sr, Cc = c + sc;
+    let k = hash(R * 73.13 + Cc * 19.71 + bi * 3.37) > .955 ? pb * .7 : 0;
+    for (const a of act) { const dt = t - a[0], d = Math.hypot(x - a[1], y - a[2]); k = Math.max(k, Math.exp(-Math.pow((d - dt * 1250) / 120, 2)) * (1 - dt / 1.5) * a[3]); }
+    if (k > .03) lit.push([x, y, k]);
+  }
+  ctx.strokeStyle = HEXC[mode]; ctx.lineWidth = 2; ctx.stroke();
+  for (const [x, y, k] of lit) { ctx.fillStyle = `rgba(${LITC[mode]},${clamp(k) * .4})`; ctx.beginPath(); hexPath(x, y, HEX * .86); ctx.fill(); }
+  ctx.restore();
+}
+function paintBG(t) {
+  const s = bgState(t);
+  paintBase(s.from === s.to || s.p >= 1 ? s.to : s.from, t);
+  if (s.p < 1 && s.from !== s.to) {
+    ctx.save(); ctx.beginPath();
+    for (let i = 0; i <= 72; i++) { const a = i / 72 * Math.PI * 2, rr = s.r * (1 + .035 * Math.sin(a * 7 + t * 5)); const x = s.x + Math.cos(a) * rr, y = s.y + Math.sin(a) * rr; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+    ctx.clip(); paintBase(s.to, t); ctx.restore();
+  }
+}
+// canvas honey drop (teardrop, tip up)
+function honeyDrop(x, y, r, stretch = 1, alpha = 1) {
+  ctx.save(); ctx.globalAlpha = alpha; ctx.translate(x, y); ctx.scale(1 / Math.sqrt(stretch), stretch);
+  const g = ctx.createRadialGradient(-r * .3, r * .1, r * .1, 0, 0, r * 1.2); g.addColorStop(0, '#FFF2C4'); g.addColorStop(.3, '#FFC93C'); g.addColorStop(.75, '#F29A0A'); g.addColorStop(1, '#B85C00');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(0, -r * 1.7); ctx.bezierCurveTo(r * .5, -r * 1.1, r, -r * .5, r, 0); ctx.arc(0, 0, r, 0, Math.PI); ctx.bezierCurveTo(-r, -r * .5, -r * .5, -r * 1.1, 0, -r * 1.7); ctx.fill();
+  ctx.fillStyle = 'rgba(255,250,230,.75)'; ctx.beginPath(); ctx.ellipse(-r * .38, r * .05, r * .16, r * .3, .4, 0, 7); ctx.fill();
+  ctx.restore();
+}
+function honeyBall(x, y, r, sx = 1, sy = 1, alpha = 1) {
+  ctx.save(); ctx.globalAlpha = alpha; ctx.translate(x, y); ctx.scale(sx, sy);
+  const g = ctx.createRadialGradient(-r * .35, -r * .4, r * .05, 0, 0, r); g.addColorStop(0, '#FFF6D8'); g.addColorStop(.25, '#FFD25C'); g.addColorStop(.7, '#E68A00'); g.addColorStop(1, '#8A4500');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.beginPath(); ctx.ellipse(-r * .35, -r * .45, r * .22, r * .12, -.6, 0, 7); ctx.fill();
+  ctx.restore();
+}
+function honeySpheres(t, n, alpha) {
+  for (let i = 0; i < n; i++) {
+    const r = 60 + hash(i * 3) * 90, ph = hash(i) * 6;
+    const x = (hash(i * 5.3) * (W + 400) + t * (40 + hash(i) * 50)) % (W + 400) - 200;
+    const y = H * .55 + Math.sin(t * 1.1 + ph) * 300 - sbeat(t) * 18 * (i % 2 ? 1 : -1);
+    honeyBall(x, y, r, 1, 1, alpha);
+  }
+}
+// hex cell that fills with honey (used as the one "loader" motif)
+function hexFill(cx, cy, R, p, t, alpha = 1, scale = 1) {
+  ctx.save(); ctx.globalAlpha = alpha; ctx.translate(cx, cy); ctx.scale(scale, scale);
+  ctx.beginPath(); hexPath(0, 0, R); ctx.fillStyle = 'rgba(23,17,10,.92)'; ctx.fill();
+  ctx.save(); ctx.clip();
+  const lv = R - p * 2 * R, amp = p > 0 && p < 1 ? 14 : 0;
+  ctx.beginPath(); ctx.moveTo(-R - 10, R + 10);
+  for (let x = -R - 10; x <= R + 10; x += 10) ctx.lineTo(x, lv + Math.sin(x * .025 + t * 5) * amp);
+  ctx.lineTo(R + 10, R + 10); ctx.closePath();
+  const g = ctx.createLinearGradient(0, -R, 0, R); g.addColorStop(0, '#FFD25C'); g.addColorStop(1, '#E8890C'); ctx.fillStyle = g; ctx.fill();
+  ctx.restore();
+  ctx.beginPath(); hexPath(0, 0, R); ctx.strokeStyle = HN; ctx.lineWidth = 8; ctx.stroke();
+  ctx.beginPath(); hexPath(0, 0, R + 26); ctx.strokeStyle = 'rgba(255,184,28,.25)'; ctx.lineWidth = 3; ctx.stroke();
+  ctx.restore();
+}
+
+/* ================= DOM: per-section containers ================= */
+let CUR = null;
+function container(name) { let c = $('L_' + name); if (!c) { c = document.createElement('div'); c.className = 'sec'; c.id = 'L_' + name; $('layer').appendChild(c); } return c; }
+function build(key, html) {
+  if (CUR._key === key) return; CUR._key = key; CUR.innerHTML = html;
+  CUR._ids = {}; CUR.querySelectorAll('[id]').forEach(e => CUR._ids[e.id] = e);
+  CUR._ad = [...CUR.querySelectorAll('.ad')].map(e => { const r = e.getBoundingClientRect(); e._c = [r.left + r.width / 2, r.top + r.height / 2]; return e; });
+}
+const Q = id => CUR._ids[id];
+/* ONE motion grammar for every element:
+   enter  = drips in from above, stretched while falling, lands with a soft jelly spring
+   hold   = keeps breathing (gentle float + slow push), never a dead stop
+   exit   = keeps dripping down, melts (fade + slight blur), overlapping the next entrance */
+function A(id, t, t0, t1 = 1e9, o = {}) {
+  const e = Q(id); if (!e) return 0;
+  const dur = o.dur ?? (o.hit ? .4 : .55), out = o.out ?? .32;
+  if (t < t0 || t > t1 + out) { e.style.display = 'none'; return 0; }
+  e.style.display = '';
+  const p = clamp((t - t0) / dur), s = spring(p), v = (spring(Math.min(1, p + .02)) - s) / .02;
+  const dx = o.dx ?? 0, dy = o.dy ?? (dx ? 0 : -110), sc0 = o.sc ?? 1, jl = o.jelly ?? 1;
+  let x = dx * (1 - s), y = dy * (1 - s), sc = sc0 + (1 - sc0) * s;
+  const stv = clamp((v > 0 ? v * .035 : v * .22) * jl, -.12, .2);
+  let sx = 1 - stv * .5, sy = 1 + stv;
+  if (dx && !dy) { sx = 1 + stv; sy = 1 - stv * .5; }
+  if (!dx && !dy) { sx = sy = 1; }
+  let op = clamp(p * (o.hit ? 9 : 3.2)), bl = (1 - clamp(p * (o.hit ? 5 : 2.4))) * (o.blur ?? (o.hit ? 5 : 9));
+  const sd = hash(t0 * 13.7 + id.length) * 6, fa = o.float ?? 1;
+  x += Math.cos(t * 1.15 + sd) * 4 * fa; y += Math.sin(t * 1.7 + sd) * 5 * fa;
+  sc *= 1 + .035 * fa * eOut(clamp((t - t0) / 5));
+  if (t > t1) { const q = clamp((t - t1) / out), k = eIn(q); y += k * (o.ey ?? 120); x += k * (o.ex ?? 0); op *= 1 - eOut(q); bl += q * 9; sy *= 1 + k * .14; sx *= 1 - k * .05; }
+  e.style.opacity = op * (o.op ?? 1);
+  e.style.transform = `translate(${x}px, ${y}px) scale(${sc * sx}, ${sc * sy}) ${o.extra || ''}`;
+  e.style.filter = bl > .4 ? `blur(${bl.toFixed(1)}px)` : 'none';
+  return p;
+}
+function hide(id) { const e = Q(id); if (e) e.style.display = 'none'; }
+function adapt(t) { (CUR._ad || []).forEach(e => { const m = bgModeAt(t, e._c[0], e._c[1]); e.style.color = ADC[m]; e.style.setProperty('--dot', m === 'honey' ? CR : HN); }); }
+
+/* ================= INTRO ================= */
+function INTRO(t) {
+  build('intro', `
+    <div class="abs c bhs ad" id="i_yeo" style="top:330px; font-size:330px">여러분<span class="dot"></span></div>
+    <div class="abs c" id="i_look" style="top:380px; transform:none"><span class="bhs wd ad" id="i_w0" style="font-size:280px">여기</span><span class="bhs wd ad" id="i_w1" style="font-size:280px; margin-left:60px">좀</span><span class="bhs wd" id="i_w2" style="font-size:280px; margin-left:60px; color:${AC}">봐요!</span></div>
+    <div class="abs sm ad" id="i_lab" style="left:256px; top:120px">일로한방병원 · 관절 이야기</div>
+    <div class="abs bhs ad" id="i_main" style="left:250px; top:180px; font-size:230px">봉침부터<span class="dot"></span></div>
+    <div class="abs ad" id="i_sub" style="left:258px; top:440px; font-weight:800; font-size:56px; letter-spacing:-1px">관절을 다시, 부드럽게.</div>`);
+  // a honey drop gathers at the top, falls and splashes into the comb
+  if (t > .25 && t < 1.74) {
+    const g = eOut(seg(t, .25, 1.15)), fall = eIn(seg(t, 1.2, 1.7));
+    const r = 8 + g * 26, y = lerp(-6 + g * 60, 540, fall);
+    if (fall < .02) { ctx.fillStyle = '#F29A0A'; ctx.fillRect(957, 0, 6, Math.max(0, y - r * 1.4)); }
+    honeyDrop(960, y, r, 1 + fall * .7 + Math.sin(t * 9) * .04 * (1 - fall));
+  }
+  A('i_yeo', t, 1.62, 3.32, { dy: -160, jelly: 1.3 });
+  [3.38, 3.64, 3.76].forEach((s, i) => A('i_w' + i, t, s, 4.42, { dy: -140, jelly: 1.3 }));
+  if (t > 4.3) bouncingHoney(t);
+  A('i_lab', t, 4.7, 7.5, { dx: -160 });
+  A('i_main', t, 5.0, 7.55, { dy: -160, jelly: 1.2 });
+  A('i_sub', t, 5.5, 7.6, { dy: -60 });
+}
+function bouncingHoney(t) {
+  const cs = B.filter(b => b > 4.55 && b < 7.62);
+  const xs = cs.map((_, i) => 300 + i * (1300 / (cs.length - 1)));
+  const base = 800; let x = xs[0], y = base, sq = 0, al = 1;
+  for (let i = 0; i < cs.length - 1; i++) if (t >= cs[i] && t < cs[i + 1]) {
+    const s = (t - cs[i]) / (cs[i + 1] - cs[i]), hh = 190 * Math.pow(.88, i);
+    x = lerp(xs[i], xs[i + 1], s); y = base - hh * 4 * s * (1 - s); sq = Math.max(0, 1 - Math.min(s, 1 - s) / .12);
+  }
+  if (t < cs[0]) { const k = eIn(seg(t, cs[0] - .45, cs[0])); x = xs[0]; y = lerp(base - 360, base, k); al = clamp((t - 4.3) * 4); }
+  if (t >= cs[cs.length - 1]) { x = xs[xs.length - 1]; const q = seg(t, cs[cs.length - 1], cs[cs.length - 1] + .5); y = base + eIn(q) * 120; sq = Math.max(0, 1 - q * 3); al = 1 - q; }
+  // honey splats left at each contact, slowly fading
+  cs.forEach((c, i) => { if (t < c) return; const a = (1 - clamp((t - c) / 1.6)) * .55; if (a <= 0) return; const k = eOut(seg(t, c, c + .25)); ctx.fillStyle = `rgba(232,137,12,${a})`; ctx.beginPath(); ctx.ellipse(xs[i], base + 44, 30 + k * 34, 7 + k * 3, 0, 0, 7); ctx.fill(); });
+  honeyBall(x, y + 44 * sq * .3, 44, 1 + sq * .32, 1 - sq * .28, al);
+}
+
+/* ================= VERSE 1 ================= */
+const PAIN = new Set(['2-1', '2-4', '3-1', '3-5', '4-2', '4-4']);
+const V1LAB = ['이럴 때 · 무릎', '이럴 때 · 어깨', '이럴 때 · 허리', '그러니'];
+function v1Word(li, wi) {
+  const word = LINES[li].w[wi][0].replace(/[,!]/g, ''), k = `${li}-${wi}`, col = PAIN.has(k) ? `color:${AC}` : '', ad = PAIN.has(k) ? '' : 'ad';
+  const fs = word.length > 3 ? 280 : 340;
+  let inner;
+  if (k === '2-2') inner = [...word].map((ch, i) => `<span class="bhs wd ${ad}" id="vc_${i}" style="font-size:330px">${ch}</span>`).join('');
+  else if (k === '5-2') inner = `<span class="bhs wd ad" id="vi_${k}" style="font-size:300px"><span style="position:relative; display:inline-block">참지<span id="v_sl" style="position:absolute; left:-6%; top:44%; width:112%; height:.11em; background:${AC}; border-radius:.05em; transform-origin:left center; transform:scaleX(0)"></span></span> 마요</span>`;
+  else if (k === '5-4') inner = `<span class="bhs wd ad" id="vi_${k}" style="font-size:${fs}px">${word}</span><svg id="v_drop" class="wd" width="120" height="156" style="margin-left:24px"><use href="#drop" width="120" height="156"/></svg>`;
+  else inner = `<span class="bhs wd ${ad}" id="vi_${k}" style="font-size:${fs}px; ${col}">${word}</span>`;
+  return `<div class="abs c" id="vw_${k}" style="top:${370 + (fs === 340 ? -20 : 0)}px">${inner}</div>`;
+}
+function V1(t) {
+  let html = '';
+  for (let li = 2; li <= 5; li++) {
+    html += `<div class="abs lab ad" id="vl_${li}" style="left:120px; top:120px">${V1LAB[li - 2]}<span class="dot"></span></div>`;
+    LINES[li].w.forEach((_, wi) => html += v1Word(li, wi));
+  }
+  build('v1', html);
+  for (let li = 2; li <= 5; li++) {
+    const ws = LINES[li].w, nextS = li < 5 ? LINES[li + 1].s : 15.9;
+    A('vl_' + li, t, LINES[li].s - .14, nextS - .2, { dx: -160 });
+    ws.forEach((w, wi) => {
+      const nx = wi < ws.length - 1 ? ws[wi + 1][1] : nextS, k = `${li}-${wi}`;
+      const t0 = w[1] - .1, t1 = nx - .1, wt = t - w[1];
+      let extra = '';
+      if (k === '2-1') { const q = seg(wt, 0, .7); const sq = Math.sin(q * Math.PI * 3) * Math.exp(-q * 3); extra = ''; const e = Q('vi_' + k); e.style.transform = `scale(${1 + sq * .3}, ${1 - sq * .4})`; }
+      if (k === '2-4') { const e = Q('vi_' + k); e.style.transform = `translateX(${wt > 0 && wt < .26 ? (hash(Math.floor(t * 30)) - .5) * 34 : 0}px)`; }
+      if (k === '3-1') { const e = Q('vi_' + k); const q = spring(seg(wt, 0, .7)); e.style.transform = `scaleX(${1 + (1 - q) * 1.1})`; }
+      if (k === '3-4') { const e = Q('vi_' + k); const up = Math.sin(seg(wt, 0, .55) * Math.PI) * 150; e.style.transform = `translateY(${-up}px)`; }
+      if (k === '3-5') { const e = Q('vi_' + k); const sh = Math.exp(-Math.max(0, wt) * 5); e.style.transform = `translateX(${(hash(Math.floor(t * 30)) - .5) * 26 * sh}px) skewX(${-10 * sh}deg)`; }
+      if (k === '4-2') { const e = Q('vi_' + k); const q = seg(wt, 0, .45); e.style.transform = `rotate(${q < 1 ? [-5, 5, -5, 5][Math.min(3, Math.floor(q * 4))] : 0}deg)`; }
+      if (k === '4-4') { const e = Q('vi_' + k); const q = eInOut(seg(wt, .05, .4)); e.style.transform = `translateY(${q * 110}px) scale(${1 + q * .22}, ${1 - q * .4})`; }
+      if (k === '5-2') { Q('v_sl').style.transform = `rotate(-8deg) scaleX(${spring(seg(wt, .02, .4))})`; }
+      if (k === '5-4') { const q = seg(wt, .15, .7); const d = Q('v_drop'); d.style.transform = `translateY(${(1 - spring(q)) * -260}px) scale(${1 - (spring(Math.min(1, q + .02)) - spring(q)) * .4}, ${1 + (spring(Math.min(1, q + .02)) - spring(q)) * 1.2})`; d.style.opacity = clamp(q * 4); }
+      if (k === '2-2') [...'계단'].forEach((_, i) => { const e = Q('vc_' + i); const q = spring(seg(wt, i * .08 - .05, i * .08 + .5)); e.style.transform = `translateY(${(1 - q) * -260 + i * 70}px)`; e.style.opacity = clamp(q * 3); });
+      A('vw_' + k, t, t0, t1, { dy: k === '2-2' ? 0 : -150, jelly: 1.2, out: .24 });
+    });
+  }
+}
+
+/* ================= BUILD (honey fills the comb) ================= */
+function BUILD(t) {
+  build('build', `
+    <div class="abs lab ad" id="b_lab" style="left:120px; top:120px">방법이 있죠<span class="dot"></span></div>
+    <div class="abs c bhs" id="b_pct" style="top:440px; font-size:140px; color:${CR}; text-shadow:0 6px 0 rgba(23,17,10,.35)">0%</div>
+    <div class="abs c ad" id="b_dd" style="top:800px; font-weight:800; font-size:58px; letter-spacing:6px">두근두근</div>`);
+  const k = seg(t, 15.9, 22.2), pct = k < .08 ? 0 : eInOut(seg(k, .08, 1));
+  const ap = spring(seg(t, 15.55, 16.15)), ex = eIn(seg(t, 22.0, 22.45));
+  if (t < 22.45) hexFill(960, 500 + (1 - ap) * -300 + ex * 500, 230, pct, t, clamp(ap * 3) * (1 - ex), 1 + sbeat(t) * .035);
+  Q('b_pct').textContent = Math.round(pct * 100) + '%';
+  A('b_pct', t, 15.65, 22.0, { dy: -300, extra: `scale(${1 + sbeat(t) * .05})` });
+  A('b_lab', t, 15.6, 21.95, { dx: -160 });
+  A('b_dd', t, 16.3, 21.95, { dy: -60, extra: `scale(${1 + sbeat(t) * .08})` });
+}
+
+/* ================= CHORUS (same design both times = the hook) ================= */
+function ringText(el, t, text, rx, ry, cx, cy, size) {
+  if (!el._built) { el._built = 1; el.innerHTML = [...text].map(ch => `<span class="bhs" style="position:absolute; font-size:${size}px; color:${HN}">${ch}</span>`).join(''); }
+  const sp = el.children, n = sp.length;
+  for (let i = 0; i < n; i++) {
+    const a = t * 1.0 + i / n * Math.PI * 2, z = Math.sin(a);
+    const s = sp[i]; s.style.left = (cx + Math.cos(a) * rx - size * .45) + 'px'; s.style.top = (cy + z * ry - size * .5) + 'px';
+    s.style.opacity = .3 + .7 * (z + 1) / 2; s.style.transform = `scale(${.7 + .3 * (z + 1) / 2}, ${(.55 + .45 * (z + 1) / 2)})`; s.style.zIndex = z > 0 ? 3 : 1;
+  }
+}
+function CHORUS(t, two) {
+  const o = two ? 16 : 6, L1 = LINES[o].w, L2 = LINES[o + 1].w, L3 = LINES[o + 2].w, L4 = LINES[o + 3].w, endT = two ? 75.85 : 35.35;
+  const rows = [...Array(7)].map((_, r) => `<div class="abs bhs" id="c_r${r}" style="left:0; top:${30 + r * 150}px; font-size:150px; color:${BR}; opacity:${r % 2 ? .1 : .18}">${('무릎 · 어깨 · 허리 · ').repeat(8)}</div>`).join('');
+  build('ch' + two, `
+    <div class="abs" id="c_rows" style="left:0;top:0;width:1920px;height:1080px">${rows}</div>
+    <div class="abs lab ad" id="c_l1" style="left:120px; top:120px; font-size:110px">쑤실 땐<span class="dot"></span></div>
+    <div class="abs lab ad" id="c_l2" style="left:120px; top:120px; font-size:110px">아플 땐<span class="dot"></span></div>
+    <div class="abs c bhs ad" id="c_b1" style="top:290px; font-size:600px; letter-spacing:-18px">봉침<span class="dot"></span></div>
+    <div class="abs c bhs ad" id="c_b2" style="top:290px; font-size:600px; letter-spacing:-18px">봉침<span class="dot"></span></div>
+    ${['무릎', '어깨', '허리엔'].map((w, i) => `<div class="abs c" id="c_w${i}" style="top:340px"><span class="bhs" style="display:inline-block; background:${BR}; color:${HN}; font-size:300px; padding:20px 70px 40px; border-radius:48px">${w}</span></div>`).join('')}
+    <div class="abs" id="c_loop" style="left:0;top:0;width:1920px;height:1080px"></div>
+    <div class="abs c bhs ad" id="c_bf" style="top:420px; font-size:250px">봉침부터<span class="dot"></span></div>
+    <div class="abs lab ad" id="c_l3" style="left:120px; top:120px">진료 때 한마디<span class="dot"></span></div>
+    <div class="abs c" id="c_bub" style="top:420px"><div id="c_bubi" style="position:relative; display:inline-flex; align-items:center; justify-content:center; height:220px; border-radius:110px; background:${BR}; color:${CR}; font-weight:900; font-size:100px; letter-spacing:-2px; white-space:nowrap">
+      <span id="c_ptx"></span><span id="c_caret" style="display:inline-block; width:7px; height:96px; background:${HN}; margin-left:8px"></span>
+      <svg style="position:absolute; left:130px; bottom:-52px" width="100" height="64"><path id="c_tail" d="M0 0 L100 0 L14 64 Z" fill="${BR}"/></svg></div></div>
+    <div class="abs c ad" id="c_sub" style="top:210px; font-weight:700; font-size:28px; letter-spacing:10px">ILRO KOREAN MEDICINE HOSPITAL</div>
+    <div class="abs c bhs ad" id="c_name" style="top:280px; font-size:170px">일로한방병원</div>
+    <div class="abs c bhs" id="c_bf2" style="top:540px; font-size:290px; color:${HN}">봉침부터<span class="dot" style="background:${CR}"></span></div>`);
+  // A — 쑤실 땐 → 봉침 → 아플 땐 → 봉침 (honey wipes on each 봉침)
+  const bEnd = L2[0][1] - .14;
+  A('c_l1', t, L1[0][1] - .12, L1[3][1] - .14, { dx: -220 });
+  A('c_b1', t, L1[2][1] - .1, L1[3][1] - .14, { dy: -320, jelly: 1.5, hit: 1, extra: `scale(${1 + sbeat(t) * .025})` });
+  A('c_l2', t, L1[3][1] - .1, bEnd, { dx: -220 });
+  A('c_b2', t, L1[5][1] - .1, bEnd, { dy: -320, jelly: 1.5, hit: 1, extra: `scale(${1 + sbeat(t) * .025})` });
+  if (two) honeySpheres(t, 6, clamp(seg(t, 63.4, 63.9)) * (1 - seg(t, L2[3][1] - .2, L2[3][1] + .2)) * .9);
+  // B — 무릎 · 어깨 · 허리엔 → 봉침부터 (ring)
+  const loopT = L2[3][1], rowsOp = seg(t, L2[0][1] - .3, L2[0][1]) * (1 - seg(t, loopT - .1, loopT + .2));
+  Q('c_rows').style.display = rowsOp > 0 ? '' : 'none'; Q('c_rows').style.opacity = rowsOp;
+  if (rowsOp > 0) for (let r = 0; r < 7; r++) Q('c_r' + r).style.transform = `translateX(${((r % 2 ? 1 : -1) * t * 160) % 1400 - 700}px)`;
+  [0, 1, 2].forEach(i => A('c_w' + i, t, L2[i][1] - .1, (i < 2 ? L2[i + 1][1] : loopT) - .1, { dy: -200, jelly: 1.3, hit: 1 }));
+  const lp = seg(t, loopT - .1, loopT + .3) * (1 - seg(t, L3[0][1] - .3, L3[0][1]));
+  Q('c_loop').style.display = lp > 0 ? '' : 'none'; Q('c_loop').style.opacity = lp;
+  if (lp > 0) ringText(Q('c_loop'), t, '봉침부터 • 봉침부터 • 봉침부터 • ', 760, 150, 960, 540, 86);
+  A('c_bf', t, loopT - .1, L3[0][1] - .2, { dy: -260, jelly: 1.4, hit: 1 });
+  // C — 진료 때 한마디, "봉침 놔 주세요!" speech bubble
+  A('c_l3', t, L3[0][1] - .1, L4[0][1] - .2, { dx: -220 });
+  A('c_bub', t, L3[0][1] - .05, L4[0][1] - .2, { dy: 0, sc: .3 });
+  const g = spring(seg(t, L3[2][1] - .12, L3[2][1] + .55));
+  const bub = Q('c_bubi'); bub.style.width = lerp(220, 1180, g) + 'px';
+  const full = '봉침 놔 주세요!', tk = seg(t, L3[3][1] - .05, L3[5][2] - .15);
+  Q('c_ptx').textContent = full.slice(0, Math.round(tk * full.length));
+  const clickT = L3[5][2] - .3, done = t > clickT;
+  Q('c_caret').style.opacity = !done && Math.floor(t * 4) % 2 ? 1 : 0;
+  const dk = seg(t, clickT, clickT + .2);
+  bub.style.background = done ? HN : BR; bub.style.color = done ? BR : CR; Q('c_tail').setAttribute('fill', done ? HN : BR);
+  bub.style.transform = done ? `scale(${1 + Math.sin(dk * Math.PI) * .06})` : '';
+  // D — 일로한방병원, 봉침부터 (orbiting honey drops)
+  const d0 = L4[0][1];
+  A('c_name', t, d0 - .08, endT, { dy: 0, sc: .9, extra: '' }); Q('c_name').style.letterSpacing = lerp(60, 10, eOut(seg(t, d0, d0 + .9))) + 'px';
+  A('c_sub', t, d0 + .15, endT, { dy: -40 });
+  A('c_bf2', t, L4[1][1] - .1, endT, { dy: -320, jelly: 1.5, hit: 1, extra: `scale(${1 + sbeat(t) * .025})` });
+  const oa = seg(t, d0 - .2, d0 + .3) * (1 - seg(t, endT, endT + .3));
+  if (oa > 0) {
+    ctx.save(); ctx.globalAlpha = oa; ctx.strokeStyle = 'rgba(255,184,28,.35)'; ctx.setLineDash([3, 12]); ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(960, 380, 780, 175, -.05, 0, 7); ctx.stroke(); ctx.setLineDash([]); ctx.restore();
+    for (let i = 0; i < 4; i++) { const a = t * .9 + i * Math.PI / 2; honeyDrop(960 + Math.cos(a) * 780, 380 + Math.sin(a) * 175 - Math.cos(a) * 780 * .05, 13 + 5 * (Math.sin(a) + 1) / 2, 1, oa * (.5 + .5 * (Math.sin(a) + 1) / 2)); }
+  }
+}
+
+/* ================= VERSE 2 ================= */
+function V2(t) {
+  const w10 = LINES[10].w, w11 = LINES[11].w, w12 = LINES[12].w, w13 = LINES[13].w;
+  const xs = [330, 760, 1190, 1610], icons = [
+    `<svg width="130" height="110"><use href="#bee" width="130" height="110"/></svg>`,
+    `<svg width="80" height="104"><use href="#drop" width="80" height="104"/></svg>`,
+    `<div style="position:relative"><svg width="80" height="104"><use href="#drop" width="80" height="104"/></svg><span style="position:absolute; right:-26px; top:-12px; color:${CR}; font-weight:900; font-size:40px">✦</span></div>`,
+    `<svg width="150" height="20" style="transform:rotate(-30deg)"><use href="#syr" width="150" height="20"/></svg>`];
+  const hexClip = 'clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)';
+  build('v2', `
+    ${['꿀벌', '봉독', '정제', '약침'].map((n, i) => `<div class="abs" id="p_n${i}" style="left:${xs[i] - 140}px; top:300px; width:280px; text-align:center">
+      <div style="width:220px; height:254px; margin:0 auto; ${hexClip}; background:${i === 3 ? HN : 'rgba(255,184,28,.6)'}; display:flex; align-items:center; justify-content:center">
+        <div style="width:206px; height:238px; ${hexClip}; background:${i === 3 ? '#3A2810' : '#1F170D'}; display:flex; align-items:center; justify-content:center">${icons[i]}</div></div>
+      <div style="margin-top:20px; font-weight:800; font-size:46px; color:${CR}">${n}</div></div>`).join('')}
+    <div class="abs c" id="p_cap" style="top:740px; font-weight:800; font-size:64px; color:${CR}">꿀벌 봉독, <span style="color:${HN}">깨끗하게 정제</span>해서.</div>
+    <div class="abs lab ad" id="t_1" style="left:120px; top:120px; font-size:110px">가는 주사로</div>
+    <div class="abs lab ad" id="t_2" style="left:120px; top:820px; font-size:110px">아픈 관절에</div>
+    <svg class="abs" id="t_syr" width="700" height="92" viewBox="0 0 460 60" style="left:0; top:514px; transform-origin:50% 50%">
+      <g id="t_pl"><line x1="0" y1="30" x2="110" y2="30" stroke="#D8CBB5" stroke-width="5" stroke-linecap="round"/><rect x="110" y="20" width="24" height="20" rx="3" fill="#CDBFA8"/></g>
+      <rect x="134" y="8" width="210" height="44" rx="8" fill="${CR}" stroke="${BR}" stroke-width="5"/>
+      <rect id="t_honey" x="140" y="15" width="198" height="30" rx="4" fill="${HN}"/>
+      <rect x="344" y="24" width="80" height="12" fill="#CDBFA8"/><rect x="424" y="27" width="14" height="6" rx="2" fill="#CDBFA8"/></svg>
+    <div class="abs bhs" id="t_ssok" style="left:1040px; width:600px; text-align:center; top:40px; font-size:420px; color:${HN}; text-shadow:0 14px 0 rgba(0,0,0,.3)">쏙!</div>
+    <div class="abs lab ad" id="g_t" style="left:120px; top:120px; font-size:100px">논문으로 확인<span class="dot"></span></div>
+    <div class="abs sm ad" id="g_s" style="left:126px; top:236px; opacity:.7">봉침 치료 후 · 통증 변화</div>
+    <svg class="abs" id="g_gr" style="left:130px; top:300px" width="820" height="560">
+      <path d="M60 30 L60 480 L780 480" stroke="${BR}" stroke-width="4" fill="none" stroke-linecap="round"/>
+      <text x="0" y="44" font-family="P" font-weight="700" font-size="26" fill="${BR}">통증</text><text x="720" y="526" font-family="P" font-weight="700" font-size="26" fill="${BR}">시간</text>
+      <path d="M60 70 L760 70" stroke="rgba(42,29,14,.25)" stroke-width="4" stroke-dasharray="10 12" fill="none"/>
+      <path id="g_curve" d="M60 70 C 300 70, 360 430, 760 440" stroke="${AM}" stroke-width="10" fill="none" stroke-linecap="round"/>
+      <g id="g_dot"><use href="#drop" x="-24" y="-48" width="48" height="62"/></g></svg>
+    <div class="abs ad" id="g_r1" style="left:1130px; top:360px; font-weight:800; font-size:84px">통증은</div>
+    <div class="abs bhs" id="g_r2" style="left:1110px; top:470px; font-size:260px; color:${AC}">다운 ↓</div>
+    <div class="abs c bhs ad" id="k_1" style="top:160px; font-size:150px">진료지침에도</div>
+    <div class="abs c" id="k_2" style="top:400px; transform-origin:50% 50%"><div style="display:inline-flex; width:400px; height:400px; border-radius:50%; background:${HN}; align-items:center; justify-content:center; box-shadow:0 0 0 18px rgba(255,184,28,.22)"><span class="bhs" style="font-size:180px; color:${BR}">권고</span></div></div>
+    <div class="abs c bhs ad" id="k_3" style="top:200px; font-size:640px">딱!</div>`);
+  // 1) 꿀벌 → 봉독 → 정제 → 약침 : one honey drop's journey
+  if (t < 39.6) {
+    const pa = seg(t, 35.5, 35.9) * (1 - seg(t, 39.1, 39.5));
+    ctx.save(); ctx.globalAlpha = pa;
+    ctx.strokeStyle = 'rgba(255,184,28,.45)'; ctx.lineWidth = 3; ctx.setLineDash([10, 14]); ctx.lineDashOffset = -t * 70; ctx.beginPath(); ctx.moveTo(0, 427); ctx.lineTo(W, 427); ctx.stroke(); ctx.setLineDash([]);
+    for (let i = 0; i < 360; i++) {
+      const sp = 110 + hash(i) * 150, x = ((hash(i * 7) * W + t * sp) % (W + 100)) - 50, ord = x > 1190;
+      const y = 427 + (ord ? (Math.floor(hash(i * 5) * 5) - 2) * 22 : (hash(i * 11) - .5) * 260 + Math.sin(t * 3 + i) * 30);
+      ctx.fillStyle = ord ? 'rgba(255,184,28,.95)' : `rgba(246,238,221,${.15 + hash(i) * .3})`;
+      ctx.beginPath(); ctx.arc(x, y, ord ? 4.5 : 2 + hash(i * 9) * 3, 0, 7); ctx.fill();
+    }
+    ctx.restore();
+  }
+  [0, 1, 2, 3].forEach(i => A('p_n' + i, t, w10[i][1] - .12, 39.12, { dy: -160, jelly: 1.3 }));
+  A('p_cap', t, w10[0][1] + .1, 39.15, { dy: -50 });
+  // 2) 가는 주사로 아픈 관절에 쏙! — calm comb zoom (no strobe)
+  A('t_1', t, w11[0][1] - .12, 42.5, { dx: -240 });
+  A('t_2', t, w11[2][1] - .12, 42.5, { dx: 240 });
+  const tgA = spring(seg(t, w11[3][1] - .15, w11[3][1] + .4)) * (1 - seg(t, 42.5, 42.85));
+  if (tgA > 0 && t < 42.9) {
+    const hit = seg(t, 41.84, 42.3);
+    for (let i = 3; i >= 1; i--) { ctx.strokeStyle = `rgba(255,184,28,${.12 * i * tgA})`; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(1340, 560, (60 + i * 46 + Math.sin(t * 3 + i) * 6) * tgA, 0, 7); ctx.stroke(); }
+    ctx.fillStyle = hit > 0 ? `rgba(255,${Math.round(lerp(90, 184, hit))},${Math.round(lerp(31, 28, hit))},${tgA})` : `rgba(255,90,31,${tgA})`;
+    ctx.beginPath(); ctx.arc(1340, 560, (56 + sbeat(t) * 6) * tgA, 0, 7); ctx.fill();
+  }
+  const sIn = spring(seg(t, w11[1][1] - .1, w11[1][1] + .5)), sGo = eInOut(seg(t, w11[3][1], w11[4][1])), sOut = seg(t, 42.45, 42.8);
+  const sx = lerp(-760, 160, sIn) + sGo * 500 - eIn(sOut) * 300;
+  if (t > w11[1][1] - .1 && t < 42.8) { const e = Q('t_syr'); e.style.display = ''; e.style.transform = `translate(${sx}px, ${Math.sin(t * 1.7) * 5}px)`; e.style.opacity = clamp((t - w11[1][1] + .1) * 4) * (1 - sOut); } else hide('t_syr');
+  const inj = eOut(seg(t, 41.84, 42.4));
+  Q('t_honey').setAttribute('width', 198 * (1 - inj)); Q('t_honey').setAttribute('x', 140 + 198 * inj); Q('t_pl').setAttribute('transform', `translate(${inj * 198} 0)`);
+  A('t_ssok', t, w11[4][1] - .1, 42.5, { dy: -300, jelly: 1.6, hit: 1 });
+  // 3) 논문으로 확인, 통증은 다운 — a honey drop slides down the curve
+  A('g_t', t, w12[0][1] - .12, 46.6, { dx: -200 });
+  A('g_s', t, w12[0][1] + .1, 46.6, { dx: -200, op: .7 });
+  const grp = A('g_gr', t, w12[0][1], 46.6, { dy: -60 });
+  const cp = eInOut(seg(t, w12[1][1] - .2, w12[3][1]));
+  const cu = Q('g_curve'); const Lc = cu.getTotalLength(); cu.style.strokeDasharray = Lc; cu.style.strokeDashoffset = Lc * (1 - cp);
+  const pt = cu.getPointAtLength(Lc * cp); Q('g_dot').setAttribute('transform', `translate(${pt.x} ${pt.y})`);
+  A('g_r1', t, w12[2][1] - .1, 46.6, { dy: -80 });
+  A('g_r2', t, w12[3][1] - .1, 46.6, { dy: -260, jelly: 1.5, hit: 1 });
+  // 4) 진료지침에도 권고, 딱!
+  A('k_1', t, w13[0][1] - .12, 49.24, { dy: -160 });
+  A('k_2', t, w13[1][1] - .08, 49.24, { dy: 0, sc: 1.9, dur: .5 });
+  A('k_3', t, w13[2][1] - .1, 50.42, { dy: -320, jelly: 1.6, hit: 1 });
+}
+
+/* ================= BRIDGE ================= */
+function heartPt(u) { const a = u * Math.PI * 2; return [16 * Math.pow(Math.sin(a), 3), -(13 * Math.cos(a) - 5 * Math.cos(2 * a) - 2 * Math.cos(3 * a) - Math.cos(4 * a))]; }
+function heartTrail(t, cx, cy, sc, t0, t1, al) {
+  const p = eInOut(seg(t, t0, t1)); ctx.save(); ctx.globalAlpha = al;
+  ctx.strokeStyle = 'rgba(232,137,12,.85)'; ctx.lineWidth = 7; ctx.lineCap = 'round'; ctx.beginPath();
+  for (let u = 0; u <= p; u += .005) { const [x, y] = heartPt(u); u === 0 ? ctx.moveTo(cx + x * sc, cy + y * sc) : ctx.lineTo(cx + x * sc, cy + y * sc); } ctx.stroke();
+  for (let j = 21; j >= 0; j--) { const u = p - j * .012; if (u < 0) continue; const [x, y] = heartPt(u); ctx.fillStyle = `rgba(255,184,28,${1 - j / 22})`; ctx.beginPath(); ctx.arc(cx + x * sc, cy + y * sc, 18 - j * .6, 0, 7); ctx.fill(); }
+  if (p > 0 && p < 1) { const [x, y] = heartPt(p); honeyBall(cx + x * sc, cy + y * sc, 20); }
+  ctx.restore();
+}
+function BR_(t) {
+  const L1 = LINES[14].w;
+  build('br', `
+    <div class="abs bhs ad" id="r_1" style="left:150px; top:300px; font-size:150px">우리 엄마<span class="dot"></span></div>
+    <div class="abs" id="r_2" style="left:156px; top:500px; font-weight:800; font-size:72px; color:#B85C00; white-space:nowrap">쑤실 때도 봉침 놔 드려요</div>
+    <svg class="abs" id="r_md" style="left:1105px; top:430px; transform-origin:50% 100%" width="350" height="268"><use href="#momdoc" width="350" height="268"/></svg>
+    <div class="abs c bhs ad" id="s_lab" style="top:110px; font-size:84px">피부반응검사 먼저<span class="dot"></span></div>
+    <div class="abs c bhs" id="s_pct" style="top:420px; font-size:120px; color:${CR}; text-shadow:0 5px 0 rgba(23,17,10,.35)">0%</div>
+    <div class="abs c" id="s_ok" style="top:400px; transform-origin:50% 50%"><svg width="180" height="160"><path d="M24 84 L70 130 L156 32" fill="none" stroke="${BR}" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <div class="abs c bhs ad" id="s_safe" style="top:705px; font-size:120px">안심하세요<span class="dot"></span></div>
+    <div class="abs c" id="s_chip" style="top:848px"><span style="display:inline-block; border:3px solid ${HN}; color:${HN}; border-radius:999px; padding:8px 30px; font-weight:800; font-size:30px; letter-spacing:1px">반응 확인 후, 안전하게 시작</span></div>`);
+  if (t < 56.2) heartTrail(t, 1280, 560, 17, 50.9, 53.6, 1 - seg(t, 55.5, 56.0));
+  A('r_1', t, L1[0][1] - .12, 55.55, { dx: -220 });
+  A('r_2', t, L1[2][1] - .1, 55.55, { dy: -70 });
+  A('r_md', t, 53.35, 55.55, { dy: 0, sc: .35 });
+  // skin test: the same honey comb cell fills → ✓
+  const ap = spring(seg(t, 55.95, 56.55)), ex = eIn(seg(t, 61.0, 61.45));
+  const pk = eInOut(seg(t, 56.3, 59.4));
+  if (t > 55.95 && t < 61.45) hexFill(960, 480 + (1 - ap) * -300 + ex * 500, 180, pk, t, clamp(ap * 3) * (1 - ex), (1 + sbeat(t) * .03) * (t > 59.68 ? 1 + Math.sin(seg(t, 59.68, 60.0) * Math.PI) * .08 : 1));
+  Q('s_pct').textContent = Math.round(pk * 100) + '%';
+  A('s_lab', t, LINES[15].s - .12, 61.05, { dy: -120 });
+  A('s_pct', t, 56.05, 59.6, { dy: -300, out: .16 });
+  A('s_ok', t, 59.64, 61.05, { dy: 0, sc: .3, dur: .5 });
+  A('s_safe', t, 59.66, 61.05, { dy: -140, jelly: 1.3 });
+  A('s_chip', t, 60.0, 61.05, { dy: -50 });
+}
+
+/* ================= BUILD 2 ================= */
+function BUILD2(t) {
+  build('b2', `${[...Array(8)].map((_, r) => `<div class="abs bhs" id="m_r${r}" style="left:0; top:${-10 + r * 140}px; font-size:140px; color:${BR}; opacity:${r % 2 ? .14 : .26}">${('봉침 · 부터 · ').repeat(10)}</div>`).join('')}
+    <div class="abs c" id="m_c" style="top:380px; transform-origin:50% 50%"><span class="bhs" style="display:inline-block; background:${BR}; color:${HN}; font-size:200px; padding:20px 70px 40px; border-radius:48px">다 같이!</span></div>`);
+  const sp = 220 + seg(t, 61.3, 63.5) * 520, op = seg(t, 61.25, 61.6) * (1 - seg(t, 63.35, 63.7));
+  for (let r = 0; r < 8; r++) { const e = Q('m_r' + r); e.style.opacity = op * (r % 2 ? .14 : .26); e.style.transform = `translateX(${((r % 2 ? 1 : -1) * (t - 61.3) * sp) % 1500 - 750}px)`; }
+  A('m_c', t, 61.38, 63.45, { dy: 0, sc: .3, extra: `scale(${1 + sbeat(t) * .07})` });
+}
+
+/* ================= OUTRO ================= */
+function OUT(t) {
+  build('out', `
+    <svg class="abs" id="o_drop" style="left:895px; top:50px; transform-origin:50% 100%" width="130" height="169"><use href="#drop" width="130" height="169"/></svg>
+    <div class="abs c bhs" id="o_big" style="top:270px; font-size:300px; color:${HN}">봉침부터<span class="dot" style="background:${CR}"></span></div>
+    <div class="abs c bhs" id="o_name" style="top:620px; font-size:120px; color:${CR}">일로한방병원</div>
+    <div class="abs c" id="o_tag" style="top:775px; font-weight:800; font-size:52px; color:rgba(246,238,221,.85)">관절이 쑤실 땐, 봉침부터.</div>
+    <div class="abs c" id="o_chip" style="top:880px; transform-origin:50% 50%"><span style="display:inline-block; background:${HN}; color:${BR}; border-radius:999px; font-weight:800; font-size:32px; padding:12px 34px">진료 때 “봉침 놔 주세요!”</span></div>`);
+  const fade = seg(t, 81.2, 82);
+  A('o_drop', t, 76.0, 1e9, { dy: -260, jelly: 1.6 });
+  if (t > 76.4) B.filter(b => b > 76.4 && b <= t && t - b < 1.4).forEach(b => { const q = (t - b) / 1.4; ctx.strokeStyle = `rgba(255,184,28,${(1 - q) * .45 * (1 - fade)})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(960, 232, 60 + q * 520, 14 + q * 120, 0, 0, 7); ctx.stroke(); });
+  A('o_name', t, 76.2, 1e9, { dy: 0, sc: .9 }); Q('o_name').style.letterSpacing = lerp(50, 8, eOut(seg(t, 76.2, 77.3))) + 'px';
+  A('o_tag', t, 76.8, 1e9, { dy: -50 });
+  A('o_chip', t, 77.3, 1e9, { dy: 0, sc: .4 });
+  A('o_big', t, 78.66 - .1, 1e9, { dy: -320, jelly: 1.5, hit: 1, extra: `scale(${1 + sbeat(t) * .03})` });
+  ctx.fillStyle = `rgba(0,0,0,${fade})`; ctx.fillRect(0, 0, W, H);
+  CUR.style.opacity = 1 - fade;
+}
+
+/* ================= lyrics caption ================= */
+function LYR(t) {
+  const box = $('lyr'); let L = null;
+  for (let i = 2; i < LINES.length - 1; i++) { const l = LINES[i]; if (t >= l.s - .5 && t <= l.e + .5) L = l; }
+  if (!L || t > 76) { box.style.opacity = 0; return; }
+  if (box._L !== L) {
+    box._L = L; const txt = L.w.map(w => w[0]).join(' ');
+    box.innerHTML = `<div class="box"><span class="t">♪ ${txt}</span><span class="h">♪ ${txt}</span></div>`;
+    box._h = box.querySelector('.h'); box._t = box.querySelector('.t');
+    const r = document.createRange(); box._pos = [];
+    const tn = box._t.firstChild; let idx = 2;
+    L.w.forEach(w => { r.setStart(tn, idx); r.setEnd(tn, idx + w[0].length); const rc = r.getBoundingClientRect(); box._pos.push([rc.left, rc.width]); idx += w[0].length + 1; });
+    box._left = box._t.getBoundingClientRect().left;
+  }
+  const k = eInOut(seg(t, L.s - .5, L.s - .2)) * (1 - eInOut(seg(t, L.e + .2, L.e + .5)));
+  box.style.opacity = k; box.style.transform = `translateY(${(1 - k) * 16}px)`;
+  let x = box._pos[0][0] - box._left;
+  L.w.forEach((w, i) => { if (t >= w[1]) x = box._pos[i][0] - box._left + box._pos[i][1] * clamp((t - w[1]) / Math.max(.1, w[2] - w[1])); });
+  box._h.style.clipPath = `inset(-20px calc(100% - ${x}px) -20px -20px)`;
+}
+
+/* ================= main ================= */
+const FN = { intro: INTRO, v1: V1, build: BUILD, ch1: t => CHORUS(t, false), v2: V2, br: BR_, build2: BUILD2, ch2: t => CHORUS(t, true), out: OUT };
+window.render = function (t) {
+  ctx.setLineDash([]); ctx.globalAlpha = 1; ZOOM = { k: 1, x: 960, y: 540 };
+  const si = secIdx(t);
+  // previous section keeps running briefly so its exits overlap the new entrances
+  const active = [si]; if (si > 0 && t < S[si][1] + .5) active.unshift(si - 1);
+  if (S[si][0] === 'v2' || (si > 0 && S[si - 1][0] === 'v2' && active.length === 2)) ZOOM = { k: 1 + .45 * eInOut(seg(t, 39.2, 42.5)) * (1 - eInOut(seg(t, 42.5, 43.3))), x: 1340, y: 560 };
+  paintBG(t);
+  S.forEach((s, i) => { const c = container(s[0]); c.style.display = active.includes(i) ? '' : 'none'; });
+  for (const i of active) { CUR = container(S[i][0]); CUR.style.opacity = 1; FN[S[i][0]](t); adapt(t); }
+  // brand mark
+  const bm = bgModeAt(t, 200, 52), br = $('brand'); br.style.color = bm === 'dark' ? 'rgba(246,238,221,.72)' : 'rgba(42,29,14,.72)'; br.style.opacity = 1 - seg(t, 81, 81.6);
+  LYR(t);
+  // camera: always breathing + soft bump on hits (no shake, no white flash)
+  const h = hitAmt(t);
+  $('cam').style.transform = `translate(${Math.sin(t * .23) * 10}px, ${Math.cos(t * .31) * 7 - h * 6}px) scale(${1.02 + Math.sin(t * .37) * .012 + h * .022})`;
+};
+window.fitAll = async function () {
+  // build every scene once and preload every glyph so no frame renders with fallback fonts
+  let txt = '';
+  for (let t = 0; t < 82; t += .25) { window.render(t); txt += $('layer').textContent; }
+  txt += LINES.map(l => l.w.map(w => w[0]).join(' ')).join(' ') + '♪✓↓·0123456789%“”!';
+  const uniq = [...new Set(txt)].join('');
+  $('pre').innerHTML = [700, 800, 900].map(w => `<div style="font-family:P; font-weight:${w}">${uniq}</div>`).join('') + `<div style="font-family:'Black Han Sans'">${uniq}</div>`;
+  await document.fonts.ready; await new Promise(r => setTimeout(r, 300)); await document.fonts.ready;
+  window.render(0);
+};
+</script>
+</body>
+</html>
