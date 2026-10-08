@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../dasan/fonts/black-han-sans/400.css">
+<link rel="stylesheet" href="fonts/jua/400.css">
+<style>
+  @font-face { font-family: P; font-weight: 100; src: url(fonts/Pretendard-Thin.otf); }
+  @font-face { font-family: P; font-weight: 300; src: url(fonts/Pretendard-Light.otf); }
+  @font-face { font-family: P; font-weight: 800; src: url(fonts/Pretendard-ExtraBold.woff2); }
+  @font-face { font-family: P; font-weight: 900; src: url(fonts/Pretendard-Black.woff2); }
+  * { margin: 0; padding: 0; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: #2340E6; }
+  #pre { position: absolute; left: -9999px; }
+</style>
+</head>
+<body>
+<canvas id="cv" width="1920" height="1080"></canvas>
+<div id="pre"></div>
+<script>
+/* THEME — lyric-driven type (ref ㉓ "Sunbeam" grammar): one cobalt world with grain,
+   every key word gets a typeface that acts out its meaning. Only type, shapes, straight lines, curves. */
+const W = 1920, H = 1080;
+const BLUE = '#2340E6', BLUE2 = '#1A2FB8', PINK = '#FF7AB6', YEL = '#FFE15A', WH = '#FFFFFF', INK = '#0E0F2E';
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+function hash(n) { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); }
+// grain, generated once (deterministic)
+const grain = document.createElement('canvas'); grain.width = 960; grain.height = 540;
+{ const g = grain.getContext('2d'), im = g.createImageData(960, 540);
+  for (let i = 0; i < 960 * 540; i++) { const v = hash(i * .37) * 255; im.data[i * 4] = im.data[i * 4 + 1] = im.data[i * 4 + 2] = v; im.data[i * 4 + 3] = 34; }
+  g.putImageData(im, 0, 0); }
+function bg() {
+  const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#2B4BF2'); g.addColorStop(.55, BLUE); g.addColorStop(1, BLUE2);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+}
+function finish() { ctx.globalCompositeOperation = 'overlay'; ctx.drawImage(grain, 0, 0, W, H); ctx.globalCompositeOperation = 'source-over'; }
+function T(s, x, y, size, o = {}) {
+  ctx.save(); ctx.translate(x, y); if (o.rot) ctx.rotate(o.rot * Math.PI / 180); ctx.scale(o.sx || 1, o.sy || 1);
+  ctx.font = `${o.w || ''} ${size}px ${o.f || "'Black Han Sans'"}`; ctx.textAlign = o.al || 'center'; ctx.textBaseline = o.bl || 'middle';
+  if (o.ls) ctx.letterSpacing = o.ls + 'px';
+  ctx.globalAlpha = o.a ?? 1; ctx.fillStyle = o.c || WH; ctx.fillText(s, 0, 0); ctx.restore();
+}
+function pill(s, x, y) {
+  ctx.font = '800 26px P'; const w = ctx.measureText(s).width + 36;
+  ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.roundRect(x, y - 21, w, 42, 21); ctx.stroke();
+  ctx.fillStyle = WH; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(s, x + 18, y + 1); return w;
+}
+function pills(list, x, y) { let cx = x; list.forEach(s => { cx += pill(s, cx, y) + 12; }); }
+// glossy puffy letters (the hero treatment, like "beam")
+function puffy(s, x, y, size, base, o = {}) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(o.sx || 1, o.sy || 1);
+  ctx.font = `${size}px Jua`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round'; ctx.letterSpacing = (o.ls || 0) + 'px';
+  // soft drop shadow
+  ctx.fillStyle = 'rgba(10,20,90,.35)'; ctx.filter = 'blur(18px)'; ctx.fillText(s, 14, 36); ctx.filter = 'none';
+  // extrusion
+  for (let i = 14; i > 0; i--) { ctx.lineWidth = size * .07; ctx.strokeStyle = o.deep || '#C8407E'; ctx.strokeText(s, i * .6, i * 1.1); ctx.fillStyle = o.deep || '#C8407E'; ctx.fillText(s, i * .6, i * 1.1); }
+  // body: fat rounded stroke + gradient
+  const g = ctx.createLinearGradient(0, -size * .6, 0, size * .6); g.addColorStop(0, o.top || '#FFD3E8'); g.addColorStop(.5, base); g.addColorStop(1, o.bot || '#E2508F');
+  ctx.lineWidth = size * .07; ctx.strokeStyle = g; ctx.strokeText(s, 0, 0); ctx.fillStyle = g; ctx.fillText(s, 0, 0);
+  // gloss
+  ctx.save(); ctx.beginPath(); ctx.rect(-W, -size, W * 2, size * .45); ctx.clip();
+  ctx.globalAlpha = .35; ctx.lineWidth = size * .025; ctx.strokeStyle = WH; ctx.strokeText(s, -size * .02, -size * .05); ctx.restore();
+  ctx.restore();
+}
+function circ(x, y, r, c) { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); }
+function ln(pts, w, c) { ctx.strokeStyle = c; ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(...p) : ctx.moveTo(...p)); ctx.stroke(); }
+
+const FR = {
+  hook() {   // ~2.4s into a hook: 다산한의원 has just puffed up
+    bg();
+    // 호평동 — hair-thin, and the ㅇ of 동 is a bouncing pink ball
+    T('호평', 120, 200, 230, { f: 'P', w: 100, al: 'left', ls: -6 });
+    ctx.font = '100 230px P'; ctx.letterSpacing = '-6px'; const wH = ctx.measureText('호평').width; ctx.letterSpacing = '0px';
+    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W, 207); ctx.clip(); T('동', 120 + wH, 200, 230, { f: 'P', w: 100, al: 'left' }); ctx.restore();
+    circ(120 + wH + 104, 312, 40, PINK); ln([[120 + wH + 40, 372], [120 + wH + 168, 372]], 4, WH);
+    // 다이어트 — fat & wide squeezed thin between two straight bars
+    T('다이어트', 1395, 205, 230, { c: YEL, sx: .62 });
+    ln([[1060, 80], [1060, 330]], 10, WH); ln([[1730, 80], [1730, 330]], 10, WH);
+    ln([[990, 205], [1040, 205]], 6, WH); ln([[1800, 205], [1750, 205]], 6, WH);
+    T('▶', 1015, 205, 40, { f: 'P', w: 800 }); T('◀', 1775, 205, 40, { f: 'P', w: 800 });
+    // 다산한의원 — glossy puffy hero
+    puffy('다산한의원', 960, 680, 290, '#FF7AB6', { ls: 26 });
+    pills(['남양주', '호평동', '다이어트'], 120, 1000);
+    T('®', 1750, 560, 40, { f: 'P', w: 800 });
+  },
+  verse() {  // "뱃살은 쭉!" — 쭉 stretches leaving echoes (like SSSKY)
+    bg();
+    T('뱃살은', 180, 300, 150, { f: 'P', w: 300, al: 'left' });
+    for (let i = 5; i >= 1; i--) T('쭉', 1180 - i * 150, 640, 520, { sx: 1.25 + i * .02, a: .12 + (5 - i) * .1, c: i % 2 ? WH : PINK });
+    T('쭉', 1180, 640, 520, { sx: 1.5 });
+    circ(1610, 790, 52, YEL);                       // the "!" dot
+    ctx.fillStyle = YEL; ctx.beginPath(); ctx.roundRect(1580, 380, 60, 330, 30); ctx.fill();
+    ln([[160, 980], [1760, 980]], 4, WH);
+    pills(['1절', '뱃살은 쭉'], 160, 1030);
+  },
+  float() {  // "몸은 가볍게 / 마음은 즐겁게" — balloons and a wavy baseline
+    bg();
+    T('몸은', 260, 240, 120, { f: 'P', w: 300 });
+    [['가', 640, 240, -6], ['볍', 900, 190, 4], ['게', 1160, 230, -3]].forEach(([c, x, y, r]) => {
+      ln([[x, y + 120], [x - 20, y + 200], [x + 10, y + 270]], 4, WH);                    // string (curve-ish)
+      ctx.save(); ctx.translate(x, y); ctx.rotate(r * Math.PI / 180);
+      const g = ctx.createRadialGradient(-30, -40, 10, 0, 0, 120); g.addColorStop(0, '#FFF7B8'); g.addColorStop(1, YEL);
+      ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, 0, 105, 118, 0, 0, 7); ctx.fill(); ctx.restore();
+      T(c, x, y + 4, 120, { f: 'Jua', c: INK, rot: r });
+    });
+    // wave baseline + 즐겁게 riding it
+    const wave = x => 790 + Math.sin((x - 300) / 180) * 50;
+    const pts = []; for (let x = 120; x <= 1800; x += 10) pts.push([x, wave(x) + 70]); ln(pts, 8, YEL);
+    T('마음은', 420, wave(420) - 40, 120, { f: 'P', w: 300 });
+    [['즐', 900], ['겁', 1170], ['게', 1440]].forEach(([c, x]) => {
+      const sl = Math.atan(Math.cos((x - 300) / 180) * 50 / 180) * 180 / Math.PI;
+      T(c, x, wave(x) - 50, 230, { c: PINK, rot: sl });
+    });
+    T('!', 1640, wave(1640) - 50, 230, { c: PINK });
+  },
+  bridge() { // "호평로 33 · 이마트 그 건물!" — pixel 33, stacked-letter building
+    bg();
+    T('호평로', 160, 240, 170, { f: 'P', w: 100, al: 'left' });
+    // pixel "33" from squares
+    const P3 = ['111', '001', '011', '001', '111'], px = 46;
+    [0, 1].forEach(d => P3.forEach((r, j) => r.split('').forEach((b, i) => { if (b === '1') { ctx.fillStyle = YEL; ctx.fillRect(170 + d * 200 + i * px, 380 + j * px, px - 6, px - 6); } })));
+    // curved arrow to the building
+    ctx.strokeStyle = WH; ctx.lineWidth = 6; ctx.setLineDash([2, 18]); ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(640, 480); ctx.bezierCurveTo(820, 260, 1040, 300, 1150, 420); ctx.stroke(); ctx.setLineDash([]);
+    ln([[1120, 400], [1155, 425], [1130, 465]], 6, WH);
+    // the building: 그 / 건 / 물 stacked, straight-line roof and ground
+    const bx = 1440;
+    ln([[1190, 150], [1690, 150]], 10, WH);
+    T('이마트', bx, 108, 72, { f: 'P', w: 800 });
+    [['그', 280], ['건', 520], ['물', 760]].forEach(([c, y]) => T(c, bx, y, 230, { sx: 1.9 }));
+    ln([[1150, 900], [1730, 900]], 10, WH);
+    for (let i = 0; i < 3; i++) circ(1240 + i * 400, 940 - 900 + 900, 0, WH);
+    T('!', 1790, 760, 230, { c: PINK });
+    pills(['남양주시', '호평로 33'], 160, 1000);
+  },
+};
+const ORDER = ['hook', 'verse', 'float', 'bridge'];
+window.render = t => { ctx.clearRect(0, 0, W, H); FR[ORDER[Math.round(t)]](); finish(); };
+window.fitAll = async () => {
+  const s = '호평동다이어트다산한의원뱃살은쭉몸은가볍게마음은즐겁게호평로이마트그건물남양주시1절!®◀▶';
+  document.getElementById('pre').innerHTML = `<span style="font-family:'Black Han Sans'">${s}</span><span style="font-family:Jua">${s}</span><span style="font-family:P;font-weight:100">${s}</span><span style="font-family:P;font-weight:300">${s}</span><span style="font-family:P;font-weight:800">${s}</span>`;
+  await Promise.all(["100px 'Black Han Sans'", '100px Jua', '100 100px P', '300 100px P', '800 100px P'].map(f => document.fonts.load(f, s)));
+  await document.fonts.ready; await new Promise(r => setTimeout(r, 300));
+};
+</script>
+</body>
+</html>
