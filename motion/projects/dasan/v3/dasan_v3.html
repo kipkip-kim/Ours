@@ -356,7 +356,8 @@ function STAGE3D(t, th, Zc) {
     S(id, { transform: `translate3d(${aside[id] * a}px, ${-push[id] * a}px, 0) rotateX(${-th}deg) scale(${lerp(1, grow[id], a)})`, opacity: vis ? o : 0, visibility: vis ? 'visible' : 'hidden' });
   }
   for (const id of ['s33', 'sgeu', 'sbld']) {
-    const [o, vis] = zfade(BASE[id]);
+    let [o, vis] = zfade(BASE[id]);
+    if (id === 'sbld') { o = 1; vis = true; }
     S(id, { transform: `rotateX(${-th}deg)`, opacity: vis ? o : 0, visibility: vis ? 'visible' : 'hidden' });
   }
   const flatVis = Zc < 2300;
