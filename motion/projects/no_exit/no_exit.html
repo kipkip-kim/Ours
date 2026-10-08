@@ -1,0 +1,304 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<title>No Exit Still Inside — ASCII MV</title>
+<style>
+@font-face{font-family:JBM;src:url(fonts/jetbrains-mono-latin-500-normal.woff2) format('woff2');font-weight:500}
+@font-face{font-family:JBM;src:url(fonts/jetbrains-mono-latin-800-normal.woff2) format('woff2');font-weight:800}
+@font-face{font-family:PretX;src:url(fonts/Pretendard-ExtraBold.woff2) format('woff2');font-weight:800}
+html,body{margin:0;background:#0b0c0d;overflow:hidden}
+canvas{display:block}
+</style>
+<script src="beats.js"></script>
+<script src="energy.js"></script>
+</head><body>
+<canvas id="c" width="1920" height="1080"></canvas>
+<canvas id="g" width="1920" height="1080" style="display:none"></canvas>
+<script>
+// 테마: "글자로 지은 콘크리트 복도 — 아무리 걸어도 같은 자리"
+// 배경 #0b0c0d / 콘크리트 회색 / 강조 1색 = 형광등 초록빛 흰색 (빛·EXIT·still inside 에만)
+const W = 1920, H = 1080, CW = 10, CH = 18, COLS = W / CW, ROWS = H / CH;
+const F0 = 760, HW = 1.15, HH = 0.8;          // 초점거리(px), 복도 반폭·반높이
+const RAMP = ' .`:-=+*#%@';
+const DUR = 213.4;
+const cv = document.getElementById('c'), cx = cv.getContext('2d');
+const gv = document.getElementById('g'), gx = gv.getContext('2d');
+
+// ---------- 유틸 ----------
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const sstep = x => { x = clamp(x); return x * x * (3 - 2 * x); };
+const eOut3 = x => 1 - Math.pow(1 - clamp(x), 3);
+function hash(a, b = 0, c = 0) {
+  let h = (a * 374761393 + b * 668265263 + c * 2147483647) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
+}
+function kf(keys, t) {                // 키프레임 사이를 smoothstep으로 잇기
+  if (t <= keys[0][0]) return keys[0][1];
+  for (let i = 1; i < keys.length; i++) if (t < keys[i][0]) {
+    const [t0, v0] = keys[i - 1], [t1, v1] = keys[i];
+    return v0 + (v1 - v0) * sstep((t - t0) / (t1 - t0));
+  }
+  return keys[keys.length - 1][1];
+}
+function energy(t) {
+  const E = window.ENERGY, f = t * window.ENERGY_FPS, i = Math.floor(f);
+  if (i < 0) return 0; if (i >= E.length - 1) return E[E.length - 1];
+  return E[i] + (E[i + 1] - E[i]) * (f - i);
+}
+function sbeat(t) {                   // 부드러운 박자 펄스 0→1→감쇠
+  const B = window.BEATS; let lo = 0, hi = B.length - 1;
+  if (t < B[0] - 0.07) return 0;
+  while (lo < hi) { const m = (lo + hi + 1) >> 1; if (B[m] - 0.07 <= t) lo = m; else hi = m - 1; }
+  const x = t - (B[lo] - 0.07);
+  return x < 0.07 ? sstep(x / 0.07) : Math.exp(-(x - 0.07) * 5.5);
+}
+
+// ---------- 가사 (원장님이 주신 단어, 노래에서 측정한 시각) ----------
+const LYR = [
+  [20.6,'light'],[22.5,'stays'],[24.5,'surface'],[27.3,'not'],[28.7,'enough'],[30.6,'enter'],[32.3,'steps'],
+  [33.5,'stop'],[34.9,'corner'],[36.3,'nothing'],[37.5,'moves'],[38.9,'space'],[40.15,'remains'],[41.85,'walls'],
+  [42.95,'repeat'],[44.4,'distance'],[46.4,"don't"],[47.5,'measure'],[49.4,"don't"],[50.5,'leave'],[51.55,'sound'],
+  [52.85,'between'],[54.45,'concrete'],[56.15,'not'],[56.85,'loud'],[57.85,'not'],[58.65,'gone'],
+  [59.9,'still'],[60.85,'inside'],[62.05,'no'],[62.85,'exit'],[64.0,'no'],[65.0,'reason'],[66.8,'decide'],
+  [68.3,'still'],[70.3,'inside'],[72.6,'time'],[74.3,'folds'],[75.1,'hallway'],[76.6,'every'],[77.65,'second'],
+  [78.75,'same'],[79.85,'breath'],[81.0,'keeps'],[81.7,'position'],[83.05,'not'],[83.7,'forward'],[84.7,'not'],
+  [85.35,'away'],[86.55,'light'],[87.55,'ends'],[88.65,'before'],[90.0,'opens'],[91.75,'stay'],
+  [97.0,'…'],[101.6,'…'],[106.2,'…'],[110.6,'…'],
+  [114.8,'still'],[116.6,'inside'],[119.6,'no'],[121.3,'exit'],[124.4,'uh'],[125.8,'still'],[127.6,'inside'],
+  [129.9,'time'],[131.6,'folds'],[133.2,'hallway'],[134.9,'every'],[136.2,'second'],[137.4,'same'],[138.6,'breath'],
+  [139.7,'keeps'],[141.0,'position'],[142.6,'not'],[143.6,'forward'],[144.9,'not'],[145.85,'away'],
+  [146.9,'still'],[148.0,'inside'],[157.0,'still'],[158.8,'inside'],[167.5,'still'],[169.4,'inside'],
+  [171.9,'time'],[173.5,'folds'],[175.1,'hallway'],[176.3,'every'],[177.1,'second'],[178.1,'same'],[179.5,'breath'],
+  [180.8,'keeps'],[182.0,'position'],[184.05,'not'],[185.0,'forward'],[186.2,'not'],[186.9,'away'],
+  [188.2,'still'],[190.8,'inside'],[194.6,'…'],[197.9,'uh'],[202.8,'still'],[206.6,'…'],
+];
+const ACCENT = new Set(['light', 'exit', 'still', 'inside', 'opens']);
+const ARRIVE = 0.42, EXIT = 0.3, HOLDMAX = 2.6;
+const WORDS = LYR.map(([t, w], i) => {
+  const next = LYR[i + 1] ? LYR[i + 1][0] : t + 4;
+  const tEnd = Math.max(t + 0.12, Math.min(next - 0.3, t + (w === '…' ? 2.2 : HOLDMAX)));
+  return { t, w, i, tEnd, acc: ACCENT.has(w), up: w.toUpperCase(), tilt: (hash(i, 7) - 0.5) * 0.08 };
+});
+
+// ---------- 카메라·장면 상태 (모두 t의 함수) ----------
+const SPEED = [[0,0.04],[13,0.1],[20,0.3],[54,0.4],[59,0.75],[72,0.95],[92,0.45],[100,0.9],[113,0.6],
+  [129,1.05],[147,0.5],[150,0.06],[156,0.12],[160,0.9],[171,1.45],[188,0.8],[192,0.25],[205,0.04],[214,0]];
+const ROLL = [[0,0],[72.4,0],[75.0,Math.PI],[92,Math.PI],[114,3*Math.PI],[129.7,3*Math.PI],[131.8,4*Math.PI],
+  [171.7,4*Math.PI],[173.8,5*Math.PI],[214,5*Math.PI]];
+const SPLITX = [[0,0],[133,0],[134.2,1],[147.3,1],[150,0],[175,0],[176.2,1],[189.5,1],[193,0]];
+const SPLITY = [[0,0],[182,0],[183.2,1],[189.5,1],[193,0]];
+const VIS = [[0,0],[11,0],[21,1],[191,1],[205,0.12],[211.5,0]];
+const ENDL = [[0,0],[4,0.1],[11,0.22],[20.4,0.95],[24,0.35],[86.2,0.32],[86.8,0.95],[87.4,0.95],[88.0,0.06],
+  [89.7,0.06],[90.25,1],[92.5,0.85],[97,0.3],[192,0.3],[201,0.06],[213,0]];
+const SIGN = [[0,0],[55,0],[58,1],[92,1],[95,0],[113,0],[115.5,1],[149,1],[152,0],[156,0],[158.5,1],[191,1],[197,0]];
+const CURSOR = [[0,1],[12,1],[17,0],[201,0],[204,1],[211.8,1],[212.6,0]];
+const ZT = (() => {                       // 전진 거리 적분 (결정적)
+  const a = new Float64Array(Math.ceil(DUR * 120) + 240); let z = 0;
+  for (let i = 0; i < a.length; i++) { a[i] = z; z += kf(SPEED, i / 120) / 120; }
+  return a;
+})();
+const camZ = t => { const f = clamp(t * 120, 0, ZT.length - 2), i = Math.floor(f); return ZT[i] + (ZT[i + 1] - ZT[i]) * (f - i); };
+
+// ---------- 큰 글자 마스크 ----------
+const MASK = {};
+function buildMasks() {
+  const oc = document.createElement('canvas'), o = oc.getContext('2d');
+  for (const wd of new Set(WORDS.map(w => w.up))) {
+    const txt = wd === '…' ? '. . .' : wd;
+    o.font = '800 120px PretX';
+    const tw = Math.ceil(o.measureText(txt).width) + 24;
+    oc.width = tw; oc.height = 160;
+    o.font = '800 120px PretX'; o.fillStyle = '#fff'; o.textBaseline = 'middle'; o.textAlign = 'center';
+    o.clearRect(0, 0, tw, 160); o.fillText(txt, tw / 2, 80);
+    const d = o.getImageData(0, 0, tw, 160).data;
+    let y0 = 160, y1 = 0, x0 = tw, x1 = 0;
+    for (let y = 0; y < 160; y++) for (let x = 0; x < tw; x++) if (d[(y * tw + x) * 4 + 3] > 110) {
+      if (y < y0) y0 = y; if (y > y1) y1 = y; if (x < x0) x0 = x; if (x > x1) x1 = x;
+    }
+    const mw = x1 - x0 + 1, mh = y1 - y0 + 1, m = new Uint8Array(mw * mh);
+    for (let y = 0; y < mh; y++) for (let x = 0; x < mw; x++) m[y * mw + x] = d[((y + y0) * tw + x + x0) * 4 + 3] > 110 ? 1 : 0;
+    MASK[wd] = { w: mw, h: mh, m, asp: mw / mh };
+  }
+}
+window.fitAll = async () => {
+  await document.fonts.load('500 16px JBM'); await document.fonts.load('800 16px JBM');
+  await document.fonts.load('800 120px PretX'); await document.fonts.ready;
+  buildMasks();
+};
+
+// 화면 단어 상태: 멀리서 날아와(t0에 착지) 머물다 지나쳐 흩어짐
+function wordState(w, t) {
+  const a0 = w.t - ARRIVE;
+  if (t < a0 || t > w.tEnd + EXIT) return null;
+  let dz, op = 1, arr = 1, ex = 0;
+  if (t < w.t) { const p = (t - a0) / ARRIVE; arr = p; dz = 1.45 + 4.2 * (1 - eOut3(p)); op = sstep(p * 1.6); }
+  else if (t < w.tEnd) dz = 1.45 - 0.16 * (t - w.t);
+  else { ex = (t - w.tEnd) / EXIT; const d0 = 1.45 - 0.16 * (w.tEnd - w.t); dz = d0 - (d0 - 0.22) * ex * ex; op = 0.7 * (1 - sstep(ex * 1.7)); }
+  const big = w.acc && (w.w === 'still' || w.w === 'inside') ? 0.6 : 0.5;
+  const mk = MASK[w.up];
+  let hw = Math.min(big, 1.9 / mk.asp);
+  if (w.w === '…') hw = 0.3;
+  return { dz, op, arr, ex, hw, ww: hw * mk.asp, mk };
+}
+
+// 화면 방향 → 선 글자
+function lineChar(dx, dy) {
+  let a = Math.atan2(dy, dx); if (a < 0) a += Math.PI; if (a >= Math.PI) a -= Math.PI;
+  const k = Math.floor((a + Math.PI / 8) / (Math.PI / 4)) % 4;
+  return ['-', '\\', '|', '/'][k];
+}
+
+// ---------- 색 버킷 ----------
+const NL = 18;
+const GRAY = [], ACC = [];
+for (let i = 0; i < NL; i++) {
+  const b = (i + 1) / NL, g = Math.round(26 + 210 * Math.pow(b, 0.9));
+  GRAY.push(`rgb(${g - 4},${g},${g + 2})`);
+  ACC.push(`rgb(${Math.round(40 + 160 * b)},${Math.round(80 + 175 * b)},${Math.round(60 + 140 * b)})`);
+}
+let buckets = [];
+function put(col, row, ch, b, acc) {
+  if (b <= 0.02 || ch === ' ') return;
+  const lv = Math.min(NL - 1, Math.floor(clamp(b) * NL));
+  buckets[(acc ? NL : 0) + lv].push(col, row, ch);
+}
+
+// ---------- 렌더 ----------
+window.render = function (t) {
+  if (!MASK.STILL) buildMasks();
+  buckets = Array.from({ length: NL * 2 }, () => []);
+  const E = energy(t), sb = sbeat(t);
+  const z0 = camZ(t), roll = kf(ROLL, t), cr = Math.cos(roll), sr = Math.sin(roll);
+  const kx = kf(SPLITX, t), ky = kf(SPLITY, t), vis = kf(VIS, t), endL = kf(ENDL, t);
+  const F = F0 * (1 + 0.012 * sb * E);
+  const swx = 7 * Math.sin(t * 0.61) + 4 * Math.sin(t * 0.23 + 1), swy = 5 * Math.sin(t * 0.47 + 2);
+  const lights = (0.35 + 0.65 * E) * (0.82 + 0.22 * sb) * vis;
+  const visD = 1.6 + 8 * vis;
+  const LS = 3.2, RS = 2.4;
+
+  // 지금 보이는 단어들 (가까운 것부터 그리기 위해 dz 오름차순)
+  const live = [];
+  for (const w of WORDS) { const s = wordState(w, t); if (s) live.push([w, s]); }
+  live.sort((a, b) => a[1].dz - b[1].dz);
+  let wordPres = 0; for (const [, s] of live) wordPres = Math.max(wordPres, s.op);
+  const dimC = 1 - 0.6 * wordPres;
+
+  for (let row = 0; row < ROWS; row++) {
+    const sy0 = row * CH + CH / 2 - H / 2 - swy;
+    for (let col = 0; col < COLS; col++) {
+      const sx0 = col * CW + CW / 2 - W / 2 - swx;
+
+      // 1) 단어 (화면 정렬 평면)
+      let done = false;
+      for (const [w, s] of live) {
+        const ct = Math.cos(w.tilt), st = Math.sin(w.tilt);
+        const ux = (sx0 * ct + sy0 * st) / F, uy = (-sx0 * st + sy0 * ct) / F;
+        const gxw = ux * s.dz, gyw = uy * s.dz;
+        const mx = Math.floor((gxw / s.ww + 0.5) * s.mk.w), my = Math.floor((gyw / s.hw + 0.5) * s.mk.h);
+        if (mx < 0 || my < 0 || mx >= s.mk.w || my >= s.mk.h || !s.mk.m[my * s.mk.w + mx]) continue;
+        const h = hash(col, row, w.i);
+        if (s.ex > 0 && h < s.ex * 0.6) continue;                   // 흩어지며 사라짐
+        let ch = w.up === '…' ? '.' : w.up[(col + row * 3) % w.up.length];
+        if (s.arr < 1 && h > s.arr * 1.25) ch = RAMP[1 + Math.floor(hash(col, row, Math.floor(t * 24)) * 10)]; // 해독되듯 등장
+        const fogW = Math.exp(-Math.max(0, s.dz - 1.4) / 3.2);
+        put(col, row, ch, (0.7 + 0.3 * fogW) * s.op * (w.w === '…' ? 0.6 : 1), w.acc);
+        done = true; break;
+      }
+      if (done) continue;
+
+      // 2) 복도 (분할 → 회전 → 광선)
+      const qx = sx0 - Math.sign(sx0) * 480 * kx, qy = sy0 - Math.sign(sy0) * 270 * ky;
+      const rx = qx * cr + qy * sr, ry = -qx * sr + qy * cr;
+      const u = rx / F, v = -ry / F;
+      const tx = Math.abs(u) > 1e-6 ? HW / Math.abs(u) : 1e9, ty = Math.abs(v) > 1e-6 ? HH / Math.abs(v) : 1e9;
+      const side = tx < ty, tt = side ? tx : ty;
+      const wz = z0 + tt, across = side ? v * tt / HH : u * tt / HW;   // -1..1
+      const fog = Math.exp(-tt / visD);
+      const rq = Math.hypot(qx, qy);
+      let b = 0, ch = ' ', acc = false;
+
+      if (fog > 0.004) {
+        const nz = hash(Math.floor(wz * 5), Math.floor(across * 7) + 50, side ? 1 : (v > 0 ? 2 : 3));
+        // 형광등: 천장(v>0) 가운데 줄
+        const ph = ((wz / LS) % 1 + 1) % 1, dl = Math.min(Math.abs(ph - 0.1), 1 - Math.abs(ph - 0.1)) * LS;
+        const illum = lights * 0.75 / (1 + dl * dl * 1.6);
+        b = (0.12 + 0.12 * nz) * vis + illum * 0.55;
+        ch = RAMP[Math.min(10, 1 + Math.floor(clamp(b * 1.15) * 9.9))];
+        const rib = (((wz / RS) % 1) + 1) % 1;
+        const tile = (((wz / 0.8) % 1) + 1) % 1;
+        if (!side && v > 0 && Math.abs(across) < 0.28 && ph < 0.2) {          // 천장 등
+          b = (0.35 + 0.65 * lights) * vis; acc = true; ch = '=';
+        } else if (Math.abs(across) > 0.93) {                                    // 모서리 선(소실점 방향)
+          b = Math.max(b, 0.42 * vis + illum * 0.4); ch = lineChar(qx, qy);
+        } else if (rib < 0.07) {                                                 // 문틀 반복
+          b = Math.max(b, 0.5 * vis + illum * 0.5);
+          ch = side ? lineChar(-sr, cr) : lineChar(cr, sr);
+        } else if (!side && v < 0 && (tile < 0.05 || Math.abs((across * 2.5) % 1) < 0.05)) { // 바닥 타일
+          b = Math.max(b, 0.26 * vis + illum * 0.3); ch = tile < 0.05 ? lineChar(cr, sr) : lineChar(qx, qy);
+        }
+        b *= fog * dimC;
+      }
+      // 복도 끝의 빛
+      const gl = endL * Math.exp(-rq / (40 + 150 * endL)) * (0.85 + 0.15 * sb);
+      if (gl > b * 0.9 && gl > 0.05) { b = Math.max(b, gl); acc = true; ch = RAMP[Math.min(10, 2 + Math.floor(gl * 8.9))]; }
+      put(col, row, ch, b, acc);
+    }
+  }
+
+  // 3) EXIT 표지 — 늘 같은 거리(6.5)에 매달려 있어 아무리 걸어도 닿지 않음
+  const sg = kf(SIGN, t);
+  if (sg > 0.01) {
+    let near = 0; for (const [w, s] of live) if (w.w === 'exit') near = Math.max(near, s.op);
+    const dzS = 6.5, py = -0.62 * HH;               // 천장 쪽(복도와 함께 회전)
+    const px = 0, rx = px * F / dzS, ry = py * F / dzS;
+    const qx = rx * cr - ry * sr, qy = rx * sr + ry * cr;
+    const copies = [];
+    for (const ox of kx > 0.02 ? [-1, 1] : [0]) for (const oy of ky > 0.02 ? [-1, 1] : [0])
+      copies.push([qx + ox * 480 * kx + swx, qy + oy * 270 * ky + swy, ox, oy]);
+    const lines = ['+--------+', '|  EXIT  |', '+--------+'];
+    const bS = sg * (0.55 + 0.25 * E + 0.3 * near) * (0.9 + 0.1 * Math.sin(t * 2.1));
+    for (const [sx, sy, ox, oy] of copies) {
+      const c0 = Math.round((sx + W / 2) / CW - 5), r0 = Math.round((sy + H / 2) / CH - 1);
+      for (let j = 0; j < 3; j++) for (let k = 0; k < 10; k++) {
+        const c = c0 + k, r = r0 + j;
+        if (c < 0 || r < 0 || c >= COLS || r >= ROWS) continue;
+        // 분할 화면에서는 자기 칸 안에서만
+        if (ox && Math.sign(c * CW + CW / 2 - W / 2 - swx) !== ox) continue;
+        if (oy && Math.sign(r * CH + CH / 2 - H / 2 - swy) !== oy) continue;
+        const ch = lines[j][k];
+        if (ch === ' ') continue;
+        clearCell(c, r); put(c, r, ch, bS, true);
+      }
+    }
+  }
+
+  // 4) 커서 (시작·끝): 깜빡임은 부드럽게, 1초에 한 번
+  const cu = kf(CURSOR, t);
+  if (cu > 0.01) {
+    const bl = 0.5 + 0.5 * Math.cos(t * Math.PI * 2 * 0.75);
+    const c = Math.round((swx + W / 2) / CW), r = Math.round((swy + H / 2) / CH);
+    for (let k = -1; k <= 1; k++) { clearCell(c + k, r); put(c + k, r, '_', cu * (0.25 + 0.75 * sstep(bl)), true); }
+  }
+
+  // ---------- 그리기 ----------
+  gx.fillStyle = '#0b0c0d'; gx.fillRect(0, 0, W, H);
+  gx.font = '800 16px JBM'; gx.textAlign = 'center'; gx.textBaseline = 'middle';
+  for (let k = 0; k < buckets.length; k++) {
+    const B = buckets[k]; if (!B.length) continue;
+    gx.fillStyle = k < NL ? GRAY[k] : ACC[k - NL];
+    for (let i = 0; i < B.length; i += 3) gx.fillText(B[i + 2], B[i] * CW + CW / 2, B[i + 1] * CH + CH / 2 + 1);
+  }
+  cx.globalCompositeOperation = 'source-over'; cx.filter = 'none';
+  cx.drawImage(gv, 0, 0);
+  cx.globalCompositeOperation = 'lighter'; cx.globalAlpha = 0.45; cx.filter = 'blur(7px)';   // 형광 번짐
+  cx.drawImage(gv, 0, 0);
+  cx.globalAlpha = 1; cx.filter = 'none'; cx.globalCompositeOperation = 'source-over';
+  const vg = cx.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, H * 1.05);
+  vg.addColorStop(0, 'rgba(11,12,13,0)'); vg.addColorStop(1, 'rgba(11,12,13,0.75)');
+  cx.fillStyle = vg; cx.fillRect(0, 0, W, H);
+};
+function clearCell(c, r) {
+  for (const B of buckets) for (let i = 0; i < B.length; i += 3) if (B[i] === c && B[i + 1] === r) { B[i + 2] = ' '; }
+}
+</script>
+</body></html>
