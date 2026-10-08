@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="fonts/jua/400.css">
+<style>
+  * { margin: 0; padding: 0; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: #1B1A40; }
+  #pre { position: absolute; left: -9999px; font-family: Jua; }
+</style>
+</head>
+<body>
+<canvas id="cv" width="1920" height="1080"></canvas>
+<div id="pre"></div>
+<script>
+/* THEME — "글자 인형 무대" (Around the World grammar): one round stage, fixed camera,
+   each sound owns one troupe and that troupe moves only when its sound plays. */
+const W = 1920, H = 1080;
+const NAVY = '#1B1A40', NAVY2 = '#2C2A6E', ST = '#6C5CE7', ST2 = '#4A3CC4', ST3 = '#8F82FF';
+const MINT = '#4FE3C1', PINK = '#FF6FAE', ORG = '#FF8A3D', CREAM = '#FFF4E0', WHITE = '#FFFFFF';
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+
+function rr(x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+
+/* ---------- stage ---------- */
+function drawStage(t) {
+  const g = ctx.createRadialGradient(960, 380, 50, 960, 480, 1200);
+  g.addColorStop(0, NAVY2); g.addColorStop(1, NAVY);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  // two soft spotlight cones
+  [[360, -.18], [1560, .18]].forEach(([x, a], i) => {
+    ctx.save(); ctx.translate(x, -40); ctx.rotate(a + Math.sin(t * .6 + i * 2) * .06);
+    const cg = ctx.createLinearGradient(0, 0, 0, 980);
+    cg.addColorStop(0, 'rgba(255,255,255,.16)'); cg.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = cg; ctx.beginPath(); ctx.moveTo(-40, 0); ctx.lineTo(40, 0); ctx.lineTo(300, 980); ctx.lineTo(-300, 980); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  });
+  // round stage: side then top
+  ctx.fillStyle = ST2; ctx.beginPath(); ctx.ellipse(960, 860, 880, 160, 0, 0, Math.PI); ctx.lineTo(80, 1080); ctx.lineTo(1840, 1080); ctx.closePath(); ctx.fill();
+  ctx.fillRect(80, 860, 1760, 220);
+  ctx.fillStyle = ST; ctx.beginPath(); ctx.ellipse(960, 830, 880, 165, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = ST3; ctx.lineWidth = 6; ctx.beginPath(); ctx.ellipse(960, 830, 880, 165, 0, 0, Math.PI * 2); ctx.stroke();
+  // floor light pool
+  const fg = ctx.createRadialGradient(960, 820, 20, 960, 820, 700);
+  fg.addColorStop(0, 'rgba(255,255,255,.18)'); fg.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = fg; ctx.beginPath(); ctx.ellipse(960, 830, 880, 165, 0, 0, Math.PI * 2); ctx.fill();
+  // centre staircase (4 steps up to a platform)
+  for (let k = 0; k < 4; k++) {
+    const w = 660 - 40 * k, y0 = 800 - 72 * (k + 1);
+    ctx.fillStyle = ST2; ctx.fillRect(960 - w / 2, y0, w, 72);
+    ctx.fillStyle = ST3; ctx.fillRect(960 - w / 2, y0, w, 14);
+  }
+}
+
+/* ---------- characters ---------- */
+function shadow(x, y, w) { ctx.fillStyle = 'rgba(10,8,40,.35)'; ctx.beginPath(); ctx.ellipse(x, y, w * .45, w * .09, 0, 0, Math.PI * 2); ctx.fill(); }
+function eye(x, y, r, look = 0) {
+  ctx.fillStyle = WHITE; ctx.strokeStyle = NAVY; ctx.lineWidth = r * .35;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = NAVY; ctx.beginPath(); ctx.arc(x + look * r * .3, y + r * .15, r * .5, 0, 7); ctx.fill();
+}
+// a syllable that is a little dancer. p: {hop, sq (squash +/-), arm (-1 down .. 1 up), tilt, dim}
+function letterDoll(x, y, s, col, ch, p = {}) {
+  const hop = p.hop || 0, sq = p.sq || 0, arm = p.arm || 0, tilt = p.tilt || 0;
+  const w = s, h = s * 1.1, leg = s * .3, lw = s * .075;
+  shadow(x, y, w * (1 - hop / (s * 3)));
+  ctx.save(); if (p.dim) ctx.globalAlpha = p.dim;
+  ctx.translate(x, y - hop);
+  ctx.strokeStyle = NAVY; ctx.lineCap = 'round'; ctx.lineWidth = lw;
+  // legs (tucked when hopping)
+  const tuck = clamp(hop / (s * .6)) * leg * .45;
+  [-1, 1].forEach(d => { ctx.beginPath(); ctx.moveTo(d * w * .2, -leg); ctx.lineTo(d * (w * .2 + tuck * .4), -tuck); ctx.stroke();
+    ctx.fillStyle = NAVY; ctx.beginPath(); ctx.ellipse(d * (w * .2 + tuck * .4) + d * s * .04, -tuck, s * .085, s * .05, 0, 0, 7); ctx.fill(); });
+  ctx.translate(0, -leg); ctx.rotate(tilt);
+  ctx.scale(1 + sq, 1 - sq);
+  // arms
+  [-1, 1].forEach(d => { const a = (-.25 - arm * 1.1) * d; ctx.beginPath(); ctx.moveTo(d * w * .48, -h * .45);
+    ctx.quadraticCurveTo(d * (w * .48 + s * .18), -h * .45 + Math.sin(a) * s * .1, d * (w * .48 + s * .3 * Math.cos(arm * 1.1)), -h * .45 - arm * s * .32); ctx.stroke();
+    ctx.fillStyle = WHITE; ctx.beginPath(); ctx.arc(d * (w * .48 + s * .3 * Math.cos(arm * 1.1)), -h * .45 - arm * s * .32, s * .055, 0, 7); ctx.fill(); ctx.stroke(); });
+  // body tile
+  rr(-w / 2, -h, w, h, s * .24); ctx.fillStyle = col; ctx.fill(); ctx.lineWidth = s * .05; ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,.28)'; rr(-w / 2 + s * .1, -h + s * .08, w * .5, s * .1, s * .05); ctx.fill();
+  // syllable
+  ctx.fillStyle = NAVY; ctx.font = `${s * .7}px Jua`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(ch, 0, -h * .44);
+  // eyes peeking over the top edge
+  eye(-w * .2, -h - s * .02, s * .1, p.look || 0); eye(w * .2, -h - s * .02, s * .1, p.look || 0);
+  ctx.restore();
+}
+// the round "belly" dancer — owns the kick drum, stars in the verse. p: {hop, sx (stretch), smile, float}
+function bellyDoll(x, y, s, p = {}) {
+  const hop = p.hop || 0, sx = p.sx || 1, sy = 1 / Math.sqrt(sx), fl = p.float || 0;
+  shadow(x, y, s * sx * (1 - (hop + fl) / (s * 3)));
+  ctx.save(); ctx.translate(x, y - hop - fl);
+  const leg = s * .18;
+  ctx.strokeStyle = NAVY; ctx.lineCap = 'round'; ctx.lineWidth = s * .07;
+  [-1, 1].forEach(d => { ctx.beginPath(); ctx.moveTo(d * s * .18, -leg); ctx.lineTo(d * s * .2, 0); ctx.stroke(); });
+  ctx.translate(0, -leg);
+  const bw = s * .55 * sx, bh = s * .5 * sy;
+  ctx.fillStyle = CREAM; ctx.lineWidth = s * .05; ctx.beginPath(); ctx.ellipse(0, -bh, bw, bh, 0, 0, 7); ctx.fill(); ctx.stroke();
+  // blush, eyes, smile
+  ctx.fillStyle = 'rgba(255,111,174,.55)'; [-1, 1].forEach(d => { ctx.beginPath(); ctx.ellipse(d * bw * .55, -bh * .85, s * .08, s * .05, 0, 0, 7); ctx.fill(); });
+  ctx.fillStyle = NAVY; [-1, 1].forEach(d => { ctx.beginPath(); ctx.arc(d * s * .15, -bh * 1.25, s * .045, 0, 7); ctx.fill(); });
+  const sm = p.smile == null ? .5 : p.smile;
+  ctx.lineWidth = s * .04; ctx.beginPath(); ctx.arc(0, -bh * 1.1, s * (.08 + .07 * sm), .15 * Math.PI, .85 * Math.PI); ctx.stroke();
+  // belly button
+  ctx.fillStyle = 'rgba(27,26,64,.45)'; ctx.beginPath(); ctx.ellipse(0, -bh * .45, s * .03, s * .045, 0, 0, 7); ctx.fill();
+  ctx.restore();
+}
+function star(x, y, r, a = 1) {
+  ctx.save(); ctx.globalAlpha = a; ctx.translate(x, y); ctx.fillStyle = WHITE;
+  ctx.beginPath(); for (let i = 0; i < 8; i++) { const rad = i % 2 ? r * .28 : r, an = i * Math.PI / 4; ctx.lineTo(Math.cos(an) * rad, Math.sin(an) * rad); } ctx.closePath(); ctx.fill(); ctx.restore();
+}
+function caption(txt, y = 150, hi = null) {
+  ctx.font = '120px Jua'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.lineJoin = 'round'; ctx.lineWidth = 22; ctx.strokeStyle = NAVY; ctx.strokeText(txt, 960, y);
+  ctx.fillStyle = WHITE; ctx.fillText(txt, 960, y);
+  if (hi) { const full = ctx.measureText(txt).width, pre = ctx.measureText(txt.slice(0, txt.indexOf(hi))).width; ctx.textAlign = 'left'; ctx.fillStyle = ORG; ctx.fillText(hi, 960 - full / 2 + pre, y); }
+}
+const row = (chars, cx, y, s, gap, col, poses = []) => chars.split('').forEach((c, i) => letterDoll(cx + (i - (chars.length - 1) / 2) * gap, y, s, col, c, poses[i] || {}));
+
+/* ---------- style frames ---------- */
+const FRAMES = {
+  hook() {           // ~2.4s: 다산한의원 just slammed down, the other troupes idle
+    drawStage(1.3);
+    row('호평동', 380, 765, 120, 150, MINT, [{ arm: .2 }, { arm: -.2 }, { arm: .2, look: 1 }]);
+    row('다이어트', 1490, 765, 112, 142, PINK, [{ look: -1 }, { arm: -.3 }, {}, { arm: .2 }]);
+    row('다산한의원', 960, 512, 128, 140, ORG, [{ arm: .5 }, { arm: .6 }, { hop: 30, arm: 1, sq: -.05 }, { hop: 70, arm: 1, sq: -.08 }, { sq: .14, arm: .9 }]);
+    [[560, 120], [810, 40], [1110, 40], [1360, 120]].forEach(([x, h], i) => bellyDoll(x, 990, 130, { hop: i % 2 ? 26 : 0, smile: .6 }));
+    star(1180, 330, 34); star(760, 300, 22, .8); star(1690, 520, 26, .7); star(250, 540, 20, .6);
+  },
+  verse() {          // 7.8s "뱃살은 쭉!": the belly troupe steps forward and stretches wide
+    drawStage(7.8);
+    row('호평동', 400, 765, 100, 118, MINT, [{ dim: .9 }, { dim: .9 }, { dim: .9 }]);
+    row('다이어트', 1500, 765, 96, 112, PINK, [{ dim: .9 }, { dim: .9 }, { dim: .9 }, { dim: .9 }]);
+    row('다산한의원', 960, 512, 104, 118, ORG, [{ dim: .9 }, { dim: .9 }, { dim: .9 }, { dim: .9 }, { dim: .9 }]);
+    bellyDoll(470, 1000, 190, { sx: 1.45, smile: .3 });
+    bellyDoll(1450, 1000, 190, { sx: 1.45, smile: .3 });
+    bellyDoll(960, 1010, 210, { sx: 1.5, smile: .2 });
+    ctx.strokeStyle = WHITE; ctx.lineWidth = 8; ctx.lineCap = 'round';
+    [[150, 880], [1770, 880]].forEach(([x, y], i) => { const d = i % 2 ? 1 : -1; for (let k = 0; k < 3; k++) { ctx.beginPath(); ctx.moveTo(x + d * k * 18, y - 30 + k * 30); ctx.lineTo(x + d * (k * 18 + 50), y - 30 + k * 30); ctx.stroke(); } });
+    caption('뱃살은 쭉!', 170, '쭉!');
+  },
+  bridge() {         // 20.8s "이마트 그 건물!": the five orange dancers stack into a building
+    drawStage(20.8);
+    const bx = 1180, s = 80, sp = 92;
+    shadow(bx, 800, 240);
+    // roof sign
+    rr(bx - 150, 800 - 4 * sp - 1.4 * s - 110, 300, 90, 22); ctx.fillStyle = WHITE; ctx.fill(); ctx.strokeStyle = NAVY; ctx.lineWidth = 7; ctx.stroke();
+    ctx.fillStyle = NAVY; ctx.font = '66px Jua'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('이마트', bx, 800 - 4 * sp - 1.4 * s - 65);
+    '원의한산다'.split('').forEach((c, i) => letterDoll(bx, 800 - i * sp, s, ORG, c, { arm: i === 4 ? 1 : (i % 2 ? .4 : -.2) }));
+    // the 호평동 troupe holds the street sign
+    rr(250, 470, 420, 120, 24); ctx.fillStyle = WHITE; ctx.fill(); ctx.strokeStyle = NAVY; ctx.lineWidth = 7; ctx.stroke();
+    ctx.fillStyle = NAVY; ctx.font = '84px Jua'; ctx.fillText('호평로 33', 460, 533);
+    row('호평동', 460, 780, 100, 128, MINT, [{ arm: 1 }, { arm: 1 }, { arm: 1 }]);
+    // 다이어트 troupe points at the building
+    row('다이어트', 1600, 790, 84, 96, PINK, [{ arm: .3, look: -1 }, { arm: .3, look: -1 }, { arm: .3, look: -1 }, { arm: .3, look: -1 }]);
+    [[620, 120], [880, 40], [1080, 40]].forEach(([x], i) => bellyDoll(x, 995, 120, { hop: i === 1 ? 24 : 0 }));
+    star(bx + 230, 160, 36); star(bx - 260, 230, 24, .8);
+    caption('이마트 그 건물!', 110, '그 건물!');
+  },
+};
+window.frame = name => { ctx.clearRect(0, 0, W, H); FRAMES[name](); };
+window.render = t => window.frame(['hook', 'verse', 'bridge'][Math.round(t)]);
+window.fitAll = async () => {
+  document.getElementById('pre').textContent = '호평동다이어트다산한의원뱃살은쭉!이마트그건물!호평로33원의한산다';
+  await document.fonts.load('100px Jua', '호평동다이어트다산한의원뱃살은쭉!이마트그건물!호평로33');
+  await document.fonts.ready; await new Promise(r => setTimeout(r, 300));
+};
+</script>
+</body>
+</html>
