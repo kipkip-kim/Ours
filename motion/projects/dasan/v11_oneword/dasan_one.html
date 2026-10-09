@@ -41,7 +41,8 @@ const sbeat = t => { const d = beatPh(t); return d < .05 ? eOut(d / .05) : Math.
 const HOOKS = [bar(0), bar(2), bar(7), bar(12)];
 const hw = h => [h, h + 2.4 * P, h + 4.9 * P].map(x => Math.max(0, x - LEAD));
 // syllable onsets measured from the centred vocal: consonant bursts (4-9 kHz) + harmonic energy; user check: 뱃살은 쭉 sits at 6-7 s
-const V = { bae: 6.85, jjuk: 7.70, che: 8.00, ssok: 8.70, mom: 9.40, ga: 9.80, ma: 10.58, jeul: 11.40 };
+// user-tuned by ear (round 2): 쭉 -0.3 s, 체질 맞춰 / 쏙 -0.3 s, 마음은 즐겁게 +0.1 s
+const V = { bae: 6.85, jjuk: 7.40, che: 7.70, ssok: 8.40, mom: 9.40, ga: 9.80, ma: 10.68, jeul: 11.50 };
 const B = { ho: 18.60, n33: 19.20, emart: 20.05, geu: 20.75 };
 const FIN = bar(14) - .02;
 const HITS = [];
@@ -165,7 +166,7 @@ function DASAN(t, h, fin = false) {
 }
 
 /* ---------- verse ---------- */
-function BAE(t) { sylBig(['뱃', '살', '은'], 960, 540, 330, 'P', 300, V.bae, .22, t); }
+function BAE(t) { sylBig(['뱃', '살', '은'], 960, 540, 330, 'P', 300, V.bae, .14, t); }
 function JJUK(t) {
   const jt = V.jjuk - .1, p = eOut(seg(t, jt, jt + .14)), x = lerp(2200, 1250, p);
   for (let k = 6; k >= 1; k--) { const ek = clamp((t - jt - .06 - (6 - k) * .02) * 10); if (ek <= 0) continue;
@@ -263,15 +264,17 @@ function FINAL(t) {
 
 /* ---------- screen timeline ---------- */
 const SC = [];
+// per-hook nudges from the user's listening notes: [호평동, 다이어트, 다산한의원] seconds
+const NUDGE = [[0, 0, -.1], [0, 0, -.1], [0, 0, -.1], [-.2, 0, 0]];
 HOOKS.forEach((H, k) => {
-  const h = hw(H), next = k === 0 ? HOOKS[1] - .2 : k === 1 ? V.bae - .2 : k === 2 ? BT0 - .05 : FIN - .14;
-  SC.push([k === 0 ? 0 : H - .25, h[1] - .06, t => HOP(t, h)]);
+  const h = hw(H).map((x, i) => x + NUDGE[k][i]), next = k === 0 ? HOOKS[1] - .2 : k === 1 ? V.bae - .2 : k === 2 ? BT0 - .05 : FIN - .14;
+  SC.push([k === 0 ? 0 : Math.min(H - .25, h[0] - .15), h[1] - .06, t => HOP(t, h)]);
   SC.push([h[1] - .14, h[2] - .06, t => DIET(t, h)]);
   SC.push([h[2] - .14, next, t => DASAN(t, h)]);
 });
 SC.push([V.bae - .25, V.jjuk - .1, BAE], [V.jjuk - .16, V.che - .1, JJUK], [V.che - .16, V.ssok - .3, CHE], [V.ssok - .34, V.mom - .12, SSOK],
   [V.mom - .2, V.ma - .38, LIGHT], [V.ma - .42, V.jeul - .14, MAEUM], [V.jeul - .2, HOOKS[2] - .15, JEUL],
-  [BT0 - .1, B.n33 - .12, ROAD], [B.n33 - .2, B.emart - .14, N33], [B.emart - .2, B.geu - .3, EMART], [B.geu - .36, HOOKS[3] - .15, GEU],
+  [BT0 - .1, B.n33 - .12, ROAD], [B.n33 - .2, B.emart - .14, N33], [B.emart - .2, B.geu - .3, EMART], [B.geu - .36, HOOKS[3] - .1 - .2 + .05, GEU],
   [FIN - .2, 99, FINAL]);
 window.render = function (t) {
   ctx.setTransform(1, 0, 0, 1, 0, 0); bg();
