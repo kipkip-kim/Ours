@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../dasan/fonts/black-han-sans/400.css">
+<link rel="stylesheet" href="fonts/jua/400.css">
+<style>
+  @font-face { font-family: P; font-weight: 100; src: url(fonts/Pretendard-Thin.otf); }
+  @font-face { font-family: P; font-weight: 300; src: url(fonts/Pretendard-Light.otf); }
+  @font-face { font-family: P; font-weight: 800; src: url(fonts/Pretendard-ExtraBold.woff2); }
+  * { margin: 0; padding: 0; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: #2340E6; }
+  #pre { position: absolute; left: -9999px; }
+</style>
+</head>
+<body>
+<canvas id="cv" width="1920" height="1080"></canvas>
+<div id="pre"></div>
+<script>
+/* 다산한의원 징글 — lyric-driven type (ref ㉓ "Sunbeam" grammar).
+   One cobalt world with grain; each key word gets a typeface that acts out its meaning.
+   Only type, shapes, straight lines and curves. The four hooks are drawn identically. */
+const W = 1920, H = 1080;
+const BLUE2 = '#1A2FB8', PINK = '#FF7AB6', YEL = '#FFE15A', WH = '#FFFFFF', INK = '#0E0F2E';
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const layer = document.createElement('canvas'); layer.width = W; layer.height = H; const L = layer.getContext('2d');
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, k) => a + (b - a) * k;
+const eOut = x => 1 - Math.pow(1 - x, 3);
+const eIn = x => x * x * x;
+const eInOut = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const spring = p => p <= 0 ? 0 : p >= 1 ? 1 : 1 - Math.exp(-6.5 * p) * Math.cos(8.5 * p);
+function hash(n) { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); }
+
+/* ---------- song clock (jingle_v1_selected, 128 BPM, kick-fitted) ---------- */
+const P = 0.46884, A0 = 0.0629, LEAD = .1;
+const bar = k => A0 + 4 * k * P;
+const beatPh = t => { const n = Math.floor((t - A0) / P); return t - (A0 + n * P); };
+const sbeat = t => { const d = beatPh(t); return d < .05 ? eOut(d / .05) : Math.exp(-(d - .05) * 6); };
+const HOOKS = [bar(0), bar(2), bar(7), bar(12)];
+const hw = h => [h, h + 2.4 * P, h + 4.9 * P].map(x => Math.max(0, x - LEAD));
+// syllable onsets measured from the centred vocal: consonant bursts (4-9 kHz) + harmonic energy; user check: 뱃살은 쭉 sits at 6-7 s
+const V = { bae: 6.85, jjuk: 7.70, che: 8.00, ssok: 8.70, mom: 9.40, ga: 9.80, ma: 10.58, jeul: 11.40 };
+const B = { ho: 18.60, n33: 19.20, emart: 20.05, geu: 20.75 };
+const FIN = bar(14) - .02;
+const HITS = [];
+HOOKS.forEach(h => HITS.push(...hw(h)));
+HITS.push(V.jjuk, V.ssok, V.ga, V.jeul, B.n33, B.geu, FIN);
+function hitAmt(t) { let a = 0; for (const h of HITS) { const d = t - h; if (d < 0 || d > 1) continue; a = Math.max(a, d < .06 ? eOut(d / .06) : Math.exp(-(d - .06) * 7)); } return a; }
+
+/* ---------- drawing kit (all draw into the current context C) ---------- */
+let C = ctx;
+const grain = document.createElement('canvas'); grain.width = 960; grain.height = 540;
+{ const g = grain.getContext('2d'), im = g.createImageData(960, 540);
+  for (let i = 0; i < 960 * 540; i++) { const v = hash(i * .37) * 255; im.data[i * 4] = im.data[i * 4 + 1] = im.data[i * 4 + 2] = v; im.data[i * 4 + 3] = 34; }
+  g.putImageData(im, 0, 0); }
+function bg() {
+  const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#2B4BF2'); g.addColorStop(.55, '#2340E6'); g.addColorStop(1, BLUE2);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+}
+function grainPass(t) {            // the grain "boils" 12 times a second, like the reference
+  const f = Math.floor(t * 12), ox = Math.floor(hash(f) * 960), oy = Math.floor(hash(f + 7) * 540);
+  ctx.globalCompositeOperation = 'overlay';
+  for (let i = -1; i < 2; i++) for (let j = -1; j < 2; j++) ctx.drawImage(grain, i * 1920 - ox * 2 + 1920, j * 1080 - oy * 2 + 1080, 1920, 1080);
+  ctx.globalCompositeOperation = 'source-over';
+}
+function T(s, x, y, size, o = {}) {
+  C.save(); C.translate(x, y); if (o.rot) C.rotate(o.rot * Math.PI / 180); C.scale(o.sx || 1, o.sy || 1);
+  C.font = `${o.w || ''} ${size}px ${o.f || "'Black Han Sans'"}`; C.textAlign = o.al || 'center'; C.textBaseline = o.bl || 'middle';
+  C.letterSpacing = (o.ls || 0) + 'px';
+  C.globalAlpha = o.a ?? 1; C.fillStyle = o.c || WH; C.fillText(s, 0, 0); C.restore();
+}
+function tw(s, size, f, w = '', ls = 0) { C.save(); C.font = `${w} ${size}px ${f}`; C.letterSpacing = ls + 'px'; const v = C.measureText(s).width; C.restore(); return v; }
+function circ(x, y, r, c, sx = 1, sy = 1) { C.fillStyle = c; C.beginPath(); C.ellipse(x, y, r * sx, r * sy, 0, 0, 7); C.fill(); }
+function ln(pts, w, c, a = 1) { C.save(); C.globalAlpha = a; C.strokeStyle = c; C.lineWidth = w; C.lineCap = 'round'; C.lineJoin = 'round'; C.beginPath(); pts.forEach((p, i) => i ? C.lineTo(...p) : C.moveTo(...p)); C.stroke(); C.restore(); }
+function pill(s, x, y, a = 1) {
+  C.save(); C.globalAlpha = a; C.font = '800 26px P'; const w = C.measureText(s).width + 36;
+  C.strokeStyle = 'rgba(255,255,255,.85)'; C.lineWidth = 2.5; C.beginPath(); C.roundRect(x, y - 21, w, 42, 21); C.stroke();
+  C.fillStyle = WH; C.textAlign = 'left'; C.textBaseline = 'middle'; C.fillText(s, x + 18, y + 1); C.restore(); return w;
+}
+function pills(list, x, y, t0, t) { let cx = x; list.forEach((s, i) => { const a = clamp((t - t0 - i * .06) * 6); cx += pill(s, cx, y + (1 - a) * 14, a) + 12; }); }
+// glossy, puffy syllable (the hero treatment)
+function puffy(ch, x, y, size, sc = 1, sy = 1) {
+  if (sc <= .001) return;
+  C.save(); C.translate(x, y); C.scale(sc, sc * sy);
+  C.font = `${size}px Jua`; C.textAlign = 'center'; C.textBaseline = 'middle'; C.lineJoin = 'round';
+  C.fillStyle = 'rgba(10,20,90,.30)'; C.filter = 'blur(16px)'; C.fillText(ch, 14, 36); C.filter = 'none';
+  const deep = '#C8407E';
+  for (let i = 12; i > 0; i--) { C.lineWidth = size * .07; C.strokeStyle = deep; C.strokeText(ch, i * .6, i * 1.1); C.fillStyle = deep; C.fillText(ch, i * .6, i * 1.1); }
+  const g = C.createLinearGradient(0, -size * .6, 0, size * .6); g.addColorStop(0, '#FFD3E8'); g.addColorStop(.5, PINK); g.addColorStop(1, '#E2508F');
+  C.lineWidth = size * .07; C.strokeStyle = g; C.strokeText(ch, 0, 0); C.fillStyle = g; C.fillText(ch, 0, 0);
+  C.save(); C.beginPath(); C.rect(-size, -size, size * 2, size * .45); C.clip();
+  C.globalAlpha = .35; C.lineWidth = size * .025; C.strokeStyle = WH; C.strokeText(ch, -size * .02, -size * .05); C.restore();
+  C.restore();
+}
+// a word that enters per syllable: soft blur-in + rise
+function sylIn(chars, xs, y, size, f, w, t0, step, t, o = {}) {
+  chars.forEach((ch, i) => {
+    const p = seg(t, t0 + i * step, t0 + i * step + .3); if (p <= 0) return;
+    C.save(); if (p < 1) C.filter = `blur(${(1 - p) * 8}px)`;
+    T(ch, xs[i], y + (1 - spring(p)) * 40, size, { f, w, al: 'left', a: clamp(p * 3), c: o.c });
+    C.restore();
+  });
+}
+const xsOf = (chars, x0, size, f, w, ls = 0) => { const out = []; let x = x0; chars.forEach(ch => { out.push(x); x += tw(ch, size, f, w) + ls; }); return out; };
+
+
+/* =====================================================================
+   다산한의원 징글 v11 — the v7 lyric look, ONE word per screen.
+   Words land on the sung syllable (entrances start ~0.1 s early and are
+   readable at the onset). Screens cut with a 0.15 s blur-out.
+   ===================================================================== */
+const PX3 = ['111', '001', '011', '001', '111'];
+const pop = (t, t0, d = .35) => spring(seg(t, t0, t0 + d));
+function sylBig(chars, cx, y, size, f, w, t0, step, t, o = {}) {      // centred word, syllables blur in one by one
+  const ls = o.ls || 0, tot = tw(chars.join(''), size, f, w, ls), xs = xsOf(chars, cx - tot / 2, size, f, w, ls);
+  chars.forEach((ch, i) => {
+    const p = seg(t, t0 + i * step - .06, t0 + i * step + .18); if (p <= 0) return;
+    C.save(); if (p < 1) C.filter = `blur(${(1 - p) * 8}px)`;
+    T(ch, xs[i], (o.yf ? o.yf(xs[i]) : y) + (1 - spring(p)) * 30, size, { f, w, al: 'left', a: clamp(p * 3), c: o.c, ls: 0 });
+    C.restore();
+  });
+  return xs;
+}
+
+/* ---------- hook: three screens, identical every time ---------- */
+function HOP(t, h) {
+  const sz = 430, f = 'P', w = 100, chars = ['호', '평', '동'];
+  const tot = tw('호평동', sz, f, w, -10), xs = xsOf(chars, 960 - tot / 2, sz, f, w, -10);
+  const t1 = h[0], tb = t1 + 2 * .234 + .14;
+  chars.slice(0, 2).forEach((ch, i) => { const p = seg(t, t1 + i * .234 - .06, t1 + i * .234 + .2); if (p <= 0) return;
+    C.save(); if (p < 1) C.filter = `blur(${(1 - p) * 8}px)`; T(ch, xs[i], 470 + (1 - spring(p)) * 30, sz, { f, w, al: 'left', a: clamp(p * 3) }); C.restore(); });
+  { const p = seg(t, t1 + .468 - .06, t1 + .468 + .2);
+    if (p > 0) { C.save(); if (t >= tb) { C.beginPath(); C.rect(0, 0, W, 483); C.clip(); } if (p < 1) C.filter = `blur(${(1 - p) * 8}px)`;
+      T('동', xs[2], 470 + (1 - spring(p)) * 30, sz, { f, w, al: 'left', a: clamp(p * 3) }); C.restore(); } }
+  const bx = xs[2] + tw('동', sz, f, w) / 2 + 4, ringY = 567, floorY = 824;
+  if (t >= tb) {
+    const lp = eOut(seg(t, tb, tb + .25)); ln([[bx - 130 * lp, 900], [bx + 130 * lp, 900]], 6, WH);
+    const firstLand = A0 + Math.ceil((tb + .12 - A0) / P) * P;
+    let y, sq = 0;
+    if (t < firstLand) { const u = seg(t, tb, firstLand); y = lerp(ringY, floorY, u * u) - Math.sin(u * Math.PI) * 90; }
+    else { const u = beatPh(t) / P; y = floorY - 4 * 150 * u * (1 - u); sq = u < .12 ? (1 - u / .12) * .22 : 0; }
+    circ(bx, y + 76 * sq * .5, 76, PINK, 1 + sq, 1 - sq);
+  }
+}
+function DIET(t, h) {
+  const t2 = h[1];
+  const bp = eOut(seg(t, t2 - .06, t2 + .1)), sqz = spring(seg(t, t2 - .02, t2 + .42)), pulse = t > t2 + .45 ? sbeat(t) : 0;
+  const lx = lerp(-20, 300, bp) + pulse * 10, rx = lerp(1940, 1620, bp) - pulse * 10;
+  C.save(); C.globalAlpha = clamp((t - t2 + .08) * 14);
+  T('다이어트', 960, 560, 470, { c: YEL, sx: lerp(1.08, .66, sqz) - pulse * .015, sy: lerp(.9, 1, sqz) }); C.restore();
+  ln([[lx, 250], [lx, 870]], 14, WH); ln([[rx, 250], [rx, 870]], 14, WH);
+  const ap = clamp((t - t2 - .08) * 6);
+  if (ap > 0) { ln([[lx - 150, 560], [lx - 50, 560]], 8, WH, ap); ln([[rx + 150, 560], [rx + 50, 560]], 8, WH, ap);
+    T('▶', lx - 95 + pulse * 8, 560, 70, { f: 'P', w: 800, a: ap }); T('◀', rx + 95 - pulse * 8, 560, 70, { f: 'P', w: 800, a: ap }); }
+}
+const PUFF = '다산한의원'.split('');
+function DASAN(t, h, fin = false) {
+  const t3 = h[2], S = 360, LS = 30, total = tw('다산한의원', S, 'Jua', '', LS), xs = xsOf(PUFF, 960 - total / 2, S, 'Jua', '', LS);
+  PUFF.forEach((ch, i) => { const p = seg(t, t3 + i * .055 - .04, t3 + i * .055 + .4); if (p <= 0) return;
+    puffy(ch, xs[i] + tw(ch, S, 'Jua') / 2, 520 + (1 - spring(p)) * 50, S, spring(p) * (p >= 1 ? 1 + sbeat(t) * .02 : 1)); });
+  if (t > t3 + .35) T('®', 960 + total / 2 + 70, 360, 50, { f: 'P', w: 800, a: clamp((t - t3 - .35) * 5) });
+  pills(['남양주', '호평동', '다이어트'], 960 - 230, 960, t3 + .25, t);
+}
+
+/* ---------- verse ---------- */
+function BAE(t) { sylBig(['뱃', '살', '은'], 960, 540, 330, 'P', 300, V.bae, .22, t); }
+function JJUK(t) {
+  const jt = V.jjuk - .1, p = eOut(seg(t, jt, jt + .14)), x = lerp(2200, 1250, p);
+  for (let k = 6; k >= 1; k--) { const ek = clamp((t - jt - .06 - (6 - k) * .02) * 10); if (ek <= 0) continue;
+    T('쭉', lerp(x, x - k * 150, ek), 540, 760, { sx: 1.3 + k * .02, a: (.1 + (6 - k) * .09) * ek, c: k % 2 ? WH : PINK }); }
+  T('쭉', x, 540, 760, { sx: 1.45 + (1 - p) * .3 - sbeat(t) * .02 });
+  const bp = pop(t, jt + .1, .4);
+  if (bp > 0) { C.save(); C.translate(1745, 440); C.scale(1, bp); C.fillStyle = YEL; C.beginPath(); C.roundRect(-45, -240, 90, 480, 45); C.fill(); C.restore(); circ(1745, 800, 70 * clamp(bp * 2), YEL); }
+}
+const SLOT = { x: 960, w: 470, y: 820 };
+function floorSlot(t, t0) {
+  const lp = eOut(seg(t, t0, t0 + .3)); if (lp <= 0) return;
+  const l = SLOT.x - SLOT.w / 2, r = SLOT.x + SLOT.w / 2;
+  ln([[160, SLOT.y], [lerp(160, l, lp), SLOT.y]], 6, WH); ln([[1760, SLOT.y], [lerp(1760, r, lp), SLOT.y]], 6, WH);
+  if (lp > .99) { ln([[l, SLOT.y], [l, 1000]], 6, WH); ln([[r, SLOT.y], [r, 1000]], 6, WH); }
+}
+function CHE(t) { floorSlot(t, V.che - .1); sylBig(['체', '질', ' ', '맞', '춰'], 960, 420, 230, 'P', 300, V.che, .1, t); }
+function SSOK(t) {
+  floorSlot(t, 0);
+  const st = V.ssok - .1 - .16, fall = seg(t, st, V.ssok - .1);
+  const y = fall < 1 ? lerp(-260, 640, fall * fall) : lerp(640, 760, spring(seg(t, V.ssok - .1, V.ssok + .35)));
+  if (t < st) return;
+  C.save(); C.beginPath(); C.rect(0, 0, W, SLOT.y); C.rect(SLOT.x - SLOT.w / 2 + 3, SLOT.y, SLOT.w - 6, 180); C.clip();
+  T('쏙', SLOT.x, y, 420, { c: PINK, sy: fall < 1 ? 1.15 : 1 }); C.restore();
+  for (let i = 0; i < 3; i++) { const a = clamp((t - V.ssok + .05) * 5) * (1 - clamp((t - V.ssok - .3) * 4)); if (a > 0) ln([[SLOT.x - 280 + i * 280, 320 + Math.abs(i - 1) * 30], [SLOT.x - 280 + i * 280, 400 + Math.abs(i - 1) * 30]], 6, WH, a * .7); }
+}
+function LIGHT(t) {
+  sylBig(['몸', '은'], 300, 230, 150, 'P', 300, V.mom, .1, t);
+  [['가', 560, 520, -6], ['볍', 960, 430, 4], ['게', 1360, 500, -3]].forEach(([ch, x, y0, r], i) => {
+    const p = seg(t, V.ga - .16 + i * .1, V.ga + .5 + i * .1); if (p <= 0) return;
+    const y = lerp(1300, y0, spring(p)) + Math.sin(t * 2.4 + i * 1.7) * 12, rr = r + Math.sin(t * 1.9 + i) * 3, sw = Math.sin(t * 2.4 + i * 1.7 + .6) * 16;
+    ln([[x, y + 215], [x - 30 + sw, y + 380], [x + 15 - sw * .5, y + 560]], 6, WH);
+    C.save(); C.translate(x, y); C.rotate(rr * Math.PI / 180);
+    const g = C.createRadialGradient(-60, -70, 20, 0, 0, 230); g.addColorStop(0, '#FFF7B8'); g.addColorStop(1, YEL);
+    C.fillStyle = g; C.beginPath(); C.ellipse(0, 0, 190, 214, 0, 0, 7); C.fill(); C.restore();
+    T(ch, x, y + 8, 220, { f: 'Jua', c: INK, rot: rr });
+  });
+}
+const WAVE = (x, t) => 700 + Math.sin((x - 300) / 200 + t * 2.0) * 50;
+function waveLine(t, t0) { const wp = eInOut(seg(t, t0, t0 + .3)); if (wp <= 0) return; const pts = []; for (let x = 100; x <= lerp(100, 1820, wp); x += 10) pts.push([x, WAVE(x, t) + 110]); ln(pts, 10, YEL); }
+function MAEUM(t) { waveLine(t, V.ma - .35); sylBig(['마', '음', '은'], 960, 0, 280, 'P', 300, V.ma, .2, t, { yf: x => WAVE(x + 120, t) - 60 }); }
+function JEUL(t) {
+  waveLine(t, -1);
+  [['즐', 520], ['겁', 860], ['게', 1200], ['!', 1480]].forEach(([ch, x], i) => {
+    const p = seg(t, V.jeul - .1 + i * .1, V.jeul + .3 + i * .1); if (p <= 0) return;
+    const sl = Math.atan(Math.cos((x - 300) / 200 + t * 2.0) * 50 / 200) * 57.3, ph = beatPh(t + i * .12) / P, hop = p >= 1 ? 4 * 40 * ph * (1 - ph) : 0;
+    T(ch, x, WAVE(x, t) - 60 - hop - (1 - spring(p)) * 160, 330, { c: PINK, rot: sl, sy: .6 + .4 * spring(p) });
+  });
+}
+
+/* ---------- bridge ---------- */
+const BT0 = bar(9);
+function roadBall(t) { const hopEnd = BT0 + 4 * P;
+  if (t < hopEnd) { const k = (t - BT0) / P, u = k - Math.floor(k), n = Math.floor(k); return [160 + (n + u) * 300, 760 - 4 * 160 * u * (1 - u)]; }
+  const ph = beatPh(t) / P; return [160 + 4 * 300, 760 - 4 * 80 * ph * (1 - ph)]; }
+function ROAD(t) {
+  const lp = eOut(seg(t, BT0, BT0 + .35)); if (lp > 0) ln([[100, 820], [lerp(100, 1820, lp), 820]], 10, WH);
+  C.fillStyle = 'rgba(255,255,255,.7)'; for (let s = BT0 + .05; s < t - .04; s += .05) { const [x, y] = roadBall(s); C.beginPath(); C.arc(x, y + 40, 6, 0, 7); C.fill(); }
+  sylBig(['호', '평', '로'], 960, 380, 330, 'P', 100, B.ho - .05, .14, t);
+  if (t > BT0 - .02) { const [x, y] = roadBall(t); circ(x, y, 60, PINK); }
+}
+function N33(t) {
+  let idx = 0; const px = 96;
+  [0, 1].forEach(d => PX3.forEach((r, j) => r.split('').forEach((b, i) => { if (b !== '1') return;
+    const ts = B.n33 - .12 + idx++ * .012, p = spring(seg(t, ts, ts + .3)); if (p <= 0) return;
+    const s = (px - 10) * p, cx = 960 - 3.5 * px + d * 4 * px + i * px + px / 2 - 40, cy = 300 + j * px; C.fillStyle = YEL; C.fillRect(cx - s / 2, cy - s / 2, s, s); })));
+  T('호평로', 960, 900, 80, { f: 'P', w: 300, a: .8 });
+}
+function EMART(t) { const p = seg(t, B.emart - .14, B.emart + .12); if (p <= 0) return;
+  C.save(); if (p < 1) C.filter = `blur(${(1 - p) * 8}px)`; T('이마트', 960, 540 + (1 - spring(p)) * 30, 330, { f: 'P', w: 800, a: clamp(p * 3) }); C.restore(); }
+function GEU(t) {
+  const gt = B.geu - .1 - .16;
+  const rp = eOut(seg(t, gt - .1, gt + .15));
+  if (rp > 0) { ln([[960 - 270 * rp, 150], [960 + 270 * rp, 150]], 12, WH); ln([[960 - 320 * rp, 990], [960 + 320 * rp, 990]], 12, WH);
+    T('이마트', 960, 100, 76, { f: 'P', w: 800, a: rp }); }
+  [['그', 300], ['건', 570], ['물', 840]].forEach(([ch, y]) => { if (t < gt) return;
+    const f = seg(t, gt, gt + .16), yy = f < 1 ? lerp(y - 900, y, f * f) : y, e = f >= 1 ? Math.exp(-(t - gt - .16) * 9) * Math.sin((t - gt - .16) * 30) * .1 : 0;
+    C.save(); C.beginPath(); C.rect(400, 156, 1120, 830); C.clip(); T(ch, 960, yy + 120 * e, 270, { sx: 1.9 * (1 + e), sy: 1 - e }); C.restore(); });
+  const ep = pop(t, B.geu + .02, .4); if (ep > 0) T('!', 1450, 820, 270, { c: PINK, sy: ep });
+  const pd = seg(t, B.geu + .05, B.geu + .3), pb = seg(t, B.geu + .3, B.geu + .7);
+  if (pd > 0) { const y = lerp(-80, 108, pd * pd) - Math.sin(pb * Math.PI) * 30 * (1 - pb);
+    C.fillStyle = PINK; C.beginPath(); C.moveTo(1180, y + 36); C.lineTo(1220, y + 36); C.lineTo(1200, y + 64); C.fill(); circ(1200, y, 44, PINK); circ(1200, y, 13, WH); }
+}
+function FINAL(t) {
+  const st = FIN - .12, a = d => spring(seg(t, st + d, st + d + .5));
+  const p1 = a(0); if (p1 > 0) { T('호평동', 520, 220 + (1 - p1) * 30, 200, { f: 'P', w: 100, a: clamp(p1 * 3), ls: -6 }); }
+  const p2 = a(.06); if (p2 > 0) T('다이어트', 1400, 220, 200, { c: YEL, sx: .62 * p2, sy: p2 });
+  const S = 290, LS = 24, total = tw('다산한의원', S, 'Jua', '', LS), xs = xsOf(PUFF, 960 - total / 2, S, 'Jua', '', LS);
+  PUFF.forEach((ch, i) => { const p = a(.12 + i * .04); if (p > 0) puffy(ch, xs[i] + tw(ch, S, 'Jua') / 2, 590, S, p * (1 + sbeat(t) * .015)); });
+  const pp = spring(seg(t, FIN + .35, FIN + .9));
+  if (pp > 0) { C.save(); C.globalAlpha = clamp(pp * 3); C.translate(0, (1 - pp) * 30);
+    C.font = '800 40px P'; const s = '남양주 호평동 · 호평로 33 · 031-559-8101', w2 = C.measureText(s).width + 80;
+    C.fillStyle = WH; C.beginPath(); C.roundRect(960 - w2 / 2, 900, w2, 74, 37); C.fill();
+    C.fillStyle = '#2340E6'; C.textAlign = 'center'; C.textBaseline = 'middle'; C.fillText(s, 960, 938); C.restore(); }
+}
+
+/* ---------- screen timeline ---------- */
+const SC = [];
+HOOKS.forEach((H, k) => {
+  const h = hw(H), next = k === 0 ? HOOKS[1] - .2 : k === 1 ? V.bae - .2 : k === 2 ? BT0 - .05 : FIN - .14;
+  SC.push([k === 0 ? 0 : H - .25, h[1] - .06, t => HOP(t, h)]);
+  SC.push([h[1] - .14, h[2] - .06, t => DIET(t, h)]);
+  SC.push([h[2] - .14, next, t => DASAN(t, h)]);
+});
+SC.push([V.bae - .25, V.jjuk - .1, BAE], [V.jjuk - .16, V.che - .1, JJUK], [V.che - .16, V.ssok - .3, CHE], [V.ssok - .34, V.mom - .12, SSOK],
+  [V.mom - .2, V.ma - .38, LIGHT], [V.ma - .42, V.jeul - .14, MAEUM], [V.jeul - .2, HOOKS[2] - .15, JEUL],
+  [BT0 - .1, B.n33 - .12, ROAD], [B.n33 - .2, B.emart - .14, N33], [B.emart - .2, B.geu - .3, EMART], [B.geu - .36, HOOKS[3] - .15, GEU],
+  [FIN - .2, 99, FINAL]);
+window.render = function (t) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0); bg();
+  const h = hitAmt(t), bx = Math.sin(t * .5) * 5, by = Math.cos(t * .37) * 4 - h * 5, bs = 1 + Math.sin(t * .6) * .005 + h * .015;
+  SC.forEach(([a, b, fn]) => {
+    if (t < a || t > b) return;
+    L.setTransform(1, 0, 0, 1, 0, 0); L.clearRect(0, 0, W, H); C = L; fn(t); C = ctx;
+    const q = b < 90 ? seg(t, b - .15, b) : 0;
+    ctx.save(); ctx.translate(W / 2 + bx, H / 2 + by); ctx.scale(bs * (1 - .05 * q), bs * (1 - .05 * q)); ctx.translate(-W / 2, -H / 2);
+    ctx.globalAlpha = 1 - q; if (q > 0) ctx.filter = `blur(${q * 10}px)`; ctx.drawImage(layer, 0, 0); ctx.restore();
+  });
+  grainPass(t);
+};
+window.fitAll = async () => {
+  const s = '호평동다이어트다산한의원뱃살은쭉체질맞춰쏙몸은가볍게마음은즐겁게호평로이마트그건물남양주시·031-559-8101!®◀▶33';
+  document.getElementById('pre').innerHTML = `<span style="font-family:'Black Han Sans'">${s}</span><span style="font-family:Jua">${s}</span><span style="font-family:P;font-weight:100">${s}</span><span style="font-family:P;font-weight:300">${s}</span><span style="font-family:P;font-weight:800">${s}</span>`;
+  await Promise.all(["100px 'Black Han Sans'", '100px Jua', '100 100px P', '300 100px P', '800 100px P'].map(f => document.fonts.load(f, s)));
+  await document.fonts.ready; await new Promise(r => setTimeout(r, 300));
+  window.render(0);
+};
+
+</script>
+</body>
+</html>
